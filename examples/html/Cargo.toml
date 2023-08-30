@@ -1,0 +1,10 @@
+[package]
+name = "example-html"
+version = "0.0.0"
+edition = "2021"
+publish = false
+
+[dependencies]
+chlorophyll = { path = "../../lib/", features = ["all-languages"] }
+v_htmlescape = "0.15"
+memchr = "2.6"

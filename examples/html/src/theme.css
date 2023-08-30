@@ -1,0 +1,31 @@
+/* Colors are cherry-picked from Atom One Light */
+
+.line-nums { padding-right: 10px; }
+
+.code.container { padding: 10px 20px; }
+
+.code .attribute { color: #606135; }
+
+.code .constant { color: #986801; }
+
+.code .function, .constructor { color: #4078F2; }
+
+.code .keyword, .repeat { color: #A626A4; font-style: strong; }
+
+.code .operator { color: #383A42; }
+
+.code .property { color: #E45649; }
+
+.code .punctuation { color: #A0A1A7; }
+
+.code .string { color: #50A14F; }
+
+.code .tag { color: #383A42; }
+
+.code .escape { color: #0184BC; }
+
+.code .type, .label { color: #C18401; }
+
+.code .variable { color: #E45649; }
+
+.code .comment { color: #A0A1A7; font-style: italic; }
