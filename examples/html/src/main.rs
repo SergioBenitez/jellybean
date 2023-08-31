@@ -1,13 +1,13 @@
 use std::fmt::Write;
 use std::path::PathBuf;
 
-use chlorophyll::{Language, Highlight, BASE_HIGHLIGHTS};
+use jellybean::{Language, Highlight, BASE_HIGHLIGHTS};
 
 const HTML_PREFIX: &str = concat!(r#"
 <!DOCTYPE html>
 <html lang="en">
     <head>
-        <title>Chlorophyll Syntax Highlighted HTML</title>
+        <title>Jellybean Syntax Highlighted HTML</title>
         <meta charset="UTF-8">
         <style>"#,
         include_str!("theme.css"),

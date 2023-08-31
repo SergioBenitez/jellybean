@@ -1,4 +1,4 @@
-use chlorophyll::{LanguageSet, Highlighter, BASE_HIGHLIGHTS};
+use jellybean::{LanguageSet, Highlighter, BASE_HIGHLIGHTS};
 
 const SLOW_LANGUAGES: &[&str] = &[
     "nix", "racket", "glimmer", "bass", "scheme", "pascal", "svelte", "elixir",

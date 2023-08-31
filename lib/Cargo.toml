@@ -1,14 +1,18 @@
 [package]
-name = "chlorophyll"
-version = "0.0.0"
+name = "jellybean"
+version = "0.0.1"
 authors = ["Sergio Benitez <sb@sergio.bz>"]
 edition = "2021"
-publish = false
+documentation = "https://docs.rs/jellybean"
+description = "A configuration library so con-free, it's unreal."
+repository = "https://github.com/SergioBenitez/jellybean"
+readme = "../README.md"
+keywords = ["syntax", "highlighting", "colors", "tree-sitter", "highlight"]
+license = "MIT OR Apache-2.0"
+categories = ["text-processing"]
 include = [
-	"/languages/tree-sitter-*/queries",
-	"/languages/tree-sitter-*/src",
-	"/languages/tree-sitter-*/*/src",
-	"/src"
+    "artifacts/tree-sitter-languages/",
+    "artifacts/tree-sitter-languages/**",
 ]
 
 [features]

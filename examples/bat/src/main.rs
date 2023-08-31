@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use yansi::{Style, Color::*, Paint};
-use chlorophyll::{Language, Highlight, BASE_HIGHLIGHTS};
+use jellybean::{Language, Highlight, BASE_HIGHLIGHTS};
 
 // This is just an arbitrary theme.
 pub static THEME: [Style; BASE_HIGHLIGHTS.len()] = [

@@ -6,7 +6,7 @@
 //! feature for all of them) you want to support:
 //!
 //! ```toml
-//! [dependencies.chlorophyll]
+//! [dependencies.jellybean]
 //! version = "1"
 //! features = ["c", "rust", "bash", "toml"]
 //! ```
@@ -14,13 +14,13 @@
 //! Highlight some code:
 //!
 //! ```rust
-//! use chlorophyll::{Language, Highlighter, Highlight};
+//! use jellybean::{Language, Highlighter, Highlight};
 //!
 //! const SOURCE: &str = r#"fn main() {
 //!    println!("Hello, world!");
 //! }"#;
 //!
-//! let config = Language::rust.highlight_config(chlorophyll::BASE_HIGHLIGHTS).unwrap();
+//! let config = Language::rust.highlight_config(jellybean::BASE_HIGHLIGHTS).unwrap();
 //! for event in Highlighter::new(&config).highlight(SOURCE) {
 //!     match event.unwrap() {
 //!         Highlight::Start { highlight, .. } => print!("<hl name={highlight:?}>"),
