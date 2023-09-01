@@ -1,8 +1,8 @@
 #[macro_use]
-#[path = "../../shared/util.rs"]
+#[path = "../../lib/shared/util.rs"]
 mod util;
 
-#[path = "../../shared/language.rs"]
+#[path = "../../lib/shared/language.rs"]
 mod language;
 
 mod clean;
@@ -17,7 +17,8 @@ example:
     cargo xtask vm --release
 
 tasks:
-    sync                  run fetch-languages and sync-features
+                          default task: sync
+    sync [-u]             run fetch-languages and sync-features (-u updates)
     fetch-languages [-u]  fetch all language sources (-u to update existing)
     sync-features         synchronize crate features with available languages
     clean                 remove all language sources and artifacts
@@ -38,8 +39,6 @@ fn main() {
             }
         }
     }
-
-    std::env::set_current_dir(workspace!(".")).unwrap();
 
     let args = std::env::args().collect::<Vec<_>>();
     let args = args.iter().skip(1).map(|s| s.as_str()).collect::<Vec<_>>();

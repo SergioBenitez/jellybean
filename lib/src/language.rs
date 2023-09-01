@@ -64,9 +64,11 @@ impl Language {
     pub fn highlight_config(self: &'static Self, highlights: &[&str]) -> HighlightConfiguration {
         let mut config = HighlightConfiguration::new(
             (self.language)(),
+            self.name,
             self.query("highlights").unwrap_or(""),
             self.query("injections").unwrap_or(""),
             self.query("locals").unwrap_or(""),
+            true,
         ).expect("all queries pre-tested");
 
         config.configure(highlights);

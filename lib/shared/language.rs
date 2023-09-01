@@ -10,11 +10,11 @@ pub struct Language<'a> {
 
 impl Language<'_> {
     pub fn source_path() -> &'static Path {
-        Path::new(workspace!("artifacts", "languages.csv"))
+        crate_path!("artifacts", "languages.csv")
     }
 
     pub fn checkout_dir() -> &'static Path {
-        Path::new(workspace!("artifacts", "tree-sitter-languages"))
+        crate_path!("artifacts", "tree-sitter-languages")
     }
 
     pub fn local_checkout_dir(&self) -> PathBuf {

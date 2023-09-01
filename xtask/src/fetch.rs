@@ -1,6 +1,15 @@
 use std::io;
 
+use walkdir::{WalkDir, DirEntry};
+
 use crate::language::Language;
+
+fn visible(entry: &DirEntry) -> bool {
+    entry.file_name()
+        .to_str()
+        .map(|s| !s.starts_with("."))
+        .unwrap_or(true)
+}
 
 pub fn main(args: &[&str]) -> io::Result<()> {
     let update_existing = args.get(1) == Some(&"-u");
@@ -12,7 +21,7 @@ pub fn main(args: &[&str]) -> io::Result<()> {
         if lang_dir.exists() {
             if args.get(1) == Some(&"-u") {
                 println!("= {} ({}:{})", lang.name, lang.git_url, lang.branch.unwrap_or("default"));
-                cmd!(lang_dir => "git", "pull")?;
+                cmd!(&lang_dir => "git", "pull")?;
             }
         } else {
             println!("+ {} ({}:{})", lang.name, lang.git_url, lang.branch.unwrap_or("default"));
@@ -21,8 +30,18 @@ pub fn main(args: &[&str]) -> io::Result<()> {
                 #lang.branch.map(|b| vec!["-b", b]).unwrap_or_default(),
                 "--depth=1",
                 lang.git_url,
-                lang_dir
+                &lang_dir
             }?;
+        }
+
+        // Remove any `Cargo.toml` so `cargo publish` doesn't ignore the dir.
+        let walker = WalkDir::new(&lang_dir).max_depth(3).into_iter();
+        for entry in walker.filter_entry(visible) {
+            let entry = entry?;
+            if entry.file_name() == "Cargo.toml" {
+                println!("- removing {}", entry.path().display());
+                std::fs::remove_file(entry.path())?;
+            }
         }
     }
 

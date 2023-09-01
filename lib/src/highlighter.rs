@@ -1,7 +1,6 @@
 use std::borrow::Cow;
 
-use tree_sitter::SerializationError;
-use tree_sitter_highlight::{HighlightConfiguration, HighlightEvent, SerializedHighlightConfig};
+use tree_sitter_highlight::{HighlightConfiguration, HighlightEvent};
 use tree_sitter_highlight::Highlighter as TsHighlighter;
 
 use crate::{Language, Result};
@@ -57,10 +56,6 @@ impl<'c> Highlighter<'c> {
         let events = self.inner.highlight(&self.config, source.as_bytes(), None, move |_| None);
         FusedEvents { highlights, source, events, done: false }
     }
-
-    pub fn serializable(self) -> Result<impl serde::Serialize + 'c, SerializationError> {
-        Ok((self.language.name, self.highlights, self.config.serialize()?))
-    }
 }
 
 impl<'a, I> Iterator for FusedEvents<'a, Result<I>>
@@ -99,18 +94,40 @@ impl<'a, I> Iterator for FusedEvents<'a, Result<I>>
     }
 }
 
-impl<'de> serde::Deserialize<'de> for Highlighter<'de> {
-    fn deserialize<D: serde::Deserializer<'de>>(de: D) -> Result<Self, D::Error> {
-        type Data<'a> = (&'a str, Vec<&'a str>, SerializedHighlightConfig);
+#[cfg(feature = "serde")]
+mod serde_impl {
+    use tree_sitter::SerializationError;
+    use tree_sitter_highlight::{HighlightConfiguration, SerializableHighlightConfig};
+    use serde::{Serialize, Deserialize, Deserializer, de::Error};
 
-        let (language, highlights, config): Data<'_> = Data::deserialize(de)?;
-        let language = Language::find_by_name(language).unwrap();
-        let config = HighlightConfiguration::deserialize(config, (language.language)()).unwrap();
-        Ok(Highlighter {
-            language,
-            config,
-            highlights: highlights.into(),
-            inner: TsHighlighter::new(),
-        })
+    use super::*;
+
+    type SerializationData<'a> = (Cow<'a, [&'a str]>, SerializableHighlightConfig);
+
+    type DeserializationData<'a> = (Vec<&'a str>, SerializableHighlightConfig);
+
+    impl<'c> Highlighter<'c> {
+        pub fn serializable(self) -> Result<impl Serialize + 'c, SerializationError> {
+            Ok((self.highlights, self.config.serializable()?) as SerializationData<'_>)
+        }
+    }
+
+    impl<'de> Deserialize<'de> for Highlighter<'de> {
+        fn deserialize<D: Deserializer<'de>>(de: D) -> Result<Self, D::Error> {
+            let (highlights, config) = DeserializationData::deserialize(de)?;
+            let language_name = &config.metadata.language_name;
+            let language = Language::find_by_name(language_name)
+                .ok_or_else(|| <D::Error>::custom(format!("missing language: {language_name}")))?;
+
+            let config = HighlightConfiguration::deserialize(config, (language.language)())
+                .map_err(|e| <D::Error>::custom(format!("{e:?}")))?;
+
+            Ok(Highlighter {
+                language,
+                config,
+                highlights: highlights.into(),
+                inner: TsHighlighter::new(),
+            })
+        }
     }
 }

@@ -1,8 +1,8 @@
 #[macro_use]
-#[path = "../shared/util.rs"]
+#[path = "shared/util.rs"]
 mod util;
 
-#[path = "../shared/language.rs"]
+#[path = "shared/language.rs"]
 mod language;
 
 use std::fs;

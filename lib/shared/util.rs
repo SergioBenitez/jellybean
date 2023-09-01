@@ -38,8 +38,15 @@ macro_rules! cmd {
 #[macro_export] #[cfg(not(windows))] macro_rules! slash { () => {   "/"  } }
 
 #[macro_export]
-macro_rules! workspace {
-    ($($path:literal),+) => {
-        concat!(env!("CARGO_MANIFEST_DIR"), $crate::slash!(), "..", $($crate::slash!(), $path),*)
+macro_rules! path {
+    ($root:expr $(, $path:literal)*) => {
+        std::path::Path::new(concat!($root, $($crate::slash!(), $path),*))
+   }
+}
+
+#[macro_export]
+macro_rules! crate_path {
+    ($($path:literal),*) => {
+        path!(std::env!("CARGO_MANIFEST_DIR"), $($path),*)
    }
 }

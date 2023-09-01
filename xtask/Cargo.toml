@@ -6,3 +6,4 @@ publish = false
 
 [dependencies]
 toml_edit = "0.19"
+walkdir = "2.3"

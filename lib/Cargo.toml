@@ -4,15 +4,30 @@ version = "0.0.1"
 authors = ["Sergio Benitez <sb@sergio.bz>"]
 edition = "2021"
 documentation = "https://docs.rs/jellybean"
-description = "A configuration library so con-free, it's unreal."
+description = "Syntax highlighting with tree-sitter. Sweet colors."
 repository = "https://github.com/SergioBenitez/jellybean"
 readme = "../README.md"
 keywords = ["syntax", "highlighting", "colors", "tree-sitter", "highlight"]
 license = "MIT OR Apache-2.0"
 categories = ["text-processing"]
 include = [
-    "artifacts/tree-sitter-languages/",
+    "src/**",
+    "shared/**",
+    "build.rs",
+    "artifacts/**",
     "artifacts/tree-sitter-languages/**",
+    "!artifacts/tree-sitter-languages/*/test/**",
+    "!artifacts/tree-sitter-languages/*/tests/**",
+    "!artifacts/tree-sitter-languages/*/.git/**",
+    "!artifacts/tree-sitter-languages/*/.github/**",
+    "!artifacts/tree-sitter-languages/*/.gitattributes",
+    "!artifacts/tree-sitter-languages/*/.gitignore",
+    "!artifacts/tree-sitter-languages/*/bin/**",
+    "!artifacts/tree-sitter-languages/*/fuzz/**",
+    "!artifacts/tree-sitter-languages/*/node_modules/**",
+    "!artifacts/tree-sitter-languages/qmljs/queries/highlights-*.scm",
+    "!artifacts/tree-sitter-languages/janet_simple/tree-sitter-janet-simple",
+    "!artifacts/tree-sitter-languages/**/*.wasm",
 ]
 
 [features]
@@ -25,18 +40,14 @@ bibtex = []
 bicep = []
 bitbake = []
 c = []
-c_sharp = []
 cairo = []
 capnp = []
 clojure = []
 corn = []
 cpon = []
-cpp = []
 css = []
 csv = []
-cuda = []
 cue = []
-d = []
 dart = []
 devicetree = []
 diff = []
@@ -71,7 +82,6 @@ gosum = []
 gowork = []
 hack = []
 hare = []
-haskell = []
 heex = []
 hjson = []
 hocon = []
@@ -87,7 +97,6 @@ jsdoc = []
 json = []
 jsonnet = []
 kdl = []
-kotlin = []
 lalrpop = []
 llvm = []
 llvm_mir = []
@@ -101,13 +110,10 @@ markdown = []
 meson = []
 ninja = []
 nix = []
-objc = []
-ocaml = []
 ocamllex = []
 odin = []
 org = []
 pascal = []
-perl = []
 pgn = []
 php = []
 po = []
@@ -129,7 +135,6 @@ re2c = []
 regex = []
 rego = []
 ron = []
-ruby = []
 rust = []
 scheme = []
 scss = []
@@ -137,20 +142,17 @@ smali = []
 smithy = []
 solidity = []
 sql = []
-sql_bigquery = []
 sqlite = []
 squirrel = []
 ssh_client_config = []
 starlark = []
 supercollider = []
 svelte = []
-swift = []
 systemtap = []
 t32 = []
 tablegen = []
 thrift = []
 tiger = []
-tlaplus = []
 toml = []
 tsv = []
 tsx = []
@@ -168,13 +170,22 @@ xml = []
 yang = []
 yuck = []
 zig = []
-all-languages = ["ada", "agda", "astro", "bash", "bass", "bibtex", "bicep", "bitbake", "c", "c_sharp", "cairo", "capnp", "clojure", "corn", "cpon", "cpp", "css", "csv", "cuda", "cue", "d", "dart", "devicetree", "diff", "dockerfile", "dot", "dtd", "eex", "elisp", "elixir", "elm", "elsa", "elvish", "embedded_template", "erlang", "firrtl", "fish", "formula", "fortran", "fsh", "func", "fusion", "git_config", "git_rebase", "gitattributes", "gitcommit", "gleam", "glimmer", "glsl", "go", "gomod", "gosum", "gowork", "hack", "hare", "haskell", "heex", "hjson", "hocon", "html", "htmldjango", "http", "hurl", "ispc", "janet_simple", "java", "javascript", "jsdoc", "json", "jsonnet", "kdl", "kotlin", "lalrpop", "llvm", "llvm_mir", "lua", "luadoc", "luap", "luau", "m68k", "make", "markdown", "meson", "ninja", "nix", "objc", "ocaml", "ocamllex", "odin", "org", "pascal", "perl", "pgn", "php", "po", "pod", "pony", "prisma", "proto", "prql", "psv", "puppet", "python", "ql", "qmldir", "qmljs", "r", "racket", "rasi", "re2c", "regex", "rego", "ron", "ruby", "rust", "scheme", "scss", "smali", "smithy", "solidity", "sql", "sql_bigquery", "sqlite", "squirrel", "ssh_client_config", "starlark", "supercollider", "svelte", "swift", "systemtap", "t32", "tablegen", "thrift", "tiger", "tlaplus", "toml", "tsv", "tsx", "twig", "typescript", "ungrammar", "usd", "uxntal", "v", "vala", "vhs", "vim", "wgsl", "xml", "yang", "yuck", "zig"]
+all-languages = ["ada", "agda", "astro", "bash", "bass", "bibtex", "bicep", "bitbake", "c", "cairo", "capnp", "clojure", "corn", "cpon", "css", "csv", "cue", "dart", "devicetree", "diff", "dockerfile", "dot", "dtd", "eex", "elisp", "elixir", "elm", "elsa", "elvish", "embedded_template", "erlang", "firrtl", "fish", "formula", "fortran", "fsh", "func", "fusion", "git_config", "git_rebase", "gitattributes", "gitcommit", "gleam", "glimmer", "glsl", "go", "gomod", "gosum", "gowork", "hack", "hare", "heex", "hjson", "hocon", "html", "htmldjango", "http", "hurl", "ispc", "janet_simple", "java", "javascript", "jsdoc", "json", "jsonnet", "kdl", "lalrpop", "llvm", "llvm_mir", "lua", "luadoc", "luap", "luau", "m68k", "make", "markdown", "meson", "ninja", "nix", "ocamllex", "odin", "org", "pascal", "pgn", "php", "po", "pod", "pony", "prisma", "proto", "prql", "psv", "puppet", "python", "ql", "qmldir", "qmljs", "r", "racket", "rasi", "re2c", "regex", "rego", "ron", "rust", "scheme", "scss", "smali", "smithy", "solidity", "sql", "sqlite", "squirrel", "ssh_client_config", "starlark", "supercollider", "svelte", "systemtap", "t32", "tablegen", "thrift", "tiger", "toml", "tsv", "tsx", "twig", "typescript", "ungrammar", "usd", "uxntal", "v", "vala", "vhs", "vim", "wgsl", "xml", "yang", "yuck", "zig"]
+serde = ["dep:serde", "tree-sitter/serde", "tree-sitter-highlight/serde"]
 
 [dependencies]
-tree-sitter = { path = "../../tree-sitter/lib", features = ["serde"] }
-tree-sitter-highlight = { path = "../../tree-sitter/highlight", features = ["serde"] }
-serde = "1"
+serde = { version = "1", optional = true }
 ref-cast = "1"
+
+[dependencies.tree-sitter]
+version = "0.20"
+git = "https://github.com/SergioBenitez/tree-sitter.git"
+branch = "serde"
+
+[dependencies.tree-sitter-highlight]
+version = "0.20"
+git = "https://github.com/SergioBenitez/tree-sitter.git"
+branch = "serde"
 
 [build-dependencies]
 cc = "1.0.73"

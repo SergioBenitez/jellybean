@@ -7,7 +7,7 @@ use crate::language::Language;
 pub fn sync<'a, I>(languages: I) -> io::Result<()>
     where I: IntoIterator<Item = Language<'a>>
 {
-    let lib_cargo_path = workspace!("lib", "Cargo.toml");
+    let lib_cargo_path = crate_path!("..", "lib", "Cargo.toml");
     let lib_cargo_toml = std::fs::read_to_string(&lib_cargo_path)?;
     let mut lib_cargo_toml: toml_edit::Document = lib_cargo_toml.parse()
         .map_err(|e| Error::new(Other, format!("lib/Cargo.toml error: {}", e)))?;
@@ -16,7 +16,13 @@ pub fn sync<'a, I>(languages: I) -> io::Result<()>
         .and_then(|item| item.as_table_mut())
         .expect("have features table");
 
+    let serde_feature = lib_features.get("serde")
+        .and_then(|item| item.as_array())
+        .cloned()
+        .expect("serde feature");
+
     lib_features.clear();
+
     for lang in languages {
         lib_features.insert(lang.name, value(Array::new()));
     }
@@ -26,6 +32,7 @@ pub fn sync<'a, I>(languages: I) -> io::Result<()>
         .collect::<Value>();
 
     lib_features.insert("all-languages", value(all_languages));
+    lib_features.insert("serde", value(serde_feature));
 
     std::fs::write(&lib_cargo_path, lib_cargo_toml.to_string())
 }

@@ -14,14 +14,13 @@
 //! Highlight some code:
 //!
 //! ```rust
-//! use jellybean::{Language, Highlighter, Highlight};
+//! use jellybean::{Language, Highlighter, Highlight, BASE_HIGHLIGHTS};
 //!
 //! const SOURCE: &str = r#"fn main() {
 //!    println!("Hello, world!");
 //! }"#;
 //!
-//! let config = Language::rust.highlight_config(jellybean::BASE_HIGHLIGHTS).unwrap();
-//! for event in Highlighter::new(&config).highlight(SOURCE) {
+//! for event in Language::rust.highlighter(&BASE_HIGHLIGHTS).highlight(SOURCE) {
 //!     match event.unwrap() {
 //!         Highlight::Start { highlight, .. } => print!("<hl name={highlight:?}>"),
 //!         Highlight::Source { text, .. } => print!("{}", text.replace('\n', "<br />\n")),
