@@ -1,7 +1,9 @@
+use std::io;
 use std::fmt::Write;
 use std::path::PathBuf;
+use std::fs::File;
 
-use jellybean::{Language, Highlight, BASE_HIGHLIGHTS};
+use jellybean::{Language, Highlight, COMMON_CAPTURES};
 
 const HTML_PREFIX: &str = concat!(r#"
 <!DOCTYPE html>
@@ -22,15 +24,17 @@ const HTML_SUFFIX: &str = r#"
 "#;
 
 /// Parse the CLI arguments. Expects and returns an input and output path.
-fn parse_cli_args() -> (PathBuf, PathBuf) {
+fn parse_cli_args() -> io::Result<(PathBuf, Box<dyn std::io::Write>)> {
     let mut args = std::env::args_os();
     let binary = args.next().expect("binary name");
     let binary = binary.to_string_lossy();
     let (input, output) = match (args.next(), args.next()) {
-        (Some(input), Some(output)) => (PathBuf::from(input), PathBuf::from(output)),
+        (Some(input), Some(output)) => (PathBuf::from(input), Box::new(File::create(output)?) as _),
+        (Some(input), None) => (PathBuf::from(input), Box::new(io::stdout()) as _),
         _ => {
-            eprintln!("error: required <input> <output> arguments missing\n");
-            eprintln!("usage: {binary} <input> <output>");
+            eprintln!("error: required <input> argument missing\n");
+            eprintln!("usage: {binary} <input> [output]");
+            eprintln!("example: {binary} src/main.rs");
             eprintln!("example: {binary} src/main.rs /tmp/output.html");
             std::process::exit(1);
         }
@@ -41,7 +45,7 @@ fn parse_cli_args() -> (PathBuf, PathBuf) {
         std::process::exit(1);
     }
 
-    (input, output)
+    Ok((input, output))
 }
 
 fn html_prefix(source: &str) -> String {
@@ -67,10 +71,10 @@ fn html_lines_unstyled(html: &mut String, source: &str) {
 
 fn html_line_styled(html: &mut String, highlight: Highlight<'_>) {
     match highlight {
-        Highlight::Start { highlight, .. } => {
+        Highlight::Start { group, .. } => {
             html.push_str("<span class='");
 
-            let mut highlights = highlight.split('.').peekable();
+            let mut highlights = group.split('.').peekable();
             while let Some(hl) = highlights.next() {
                 html.push_str(hl);
                 if highlights.peek().is_some() {
@@ -95,17 +99,17 @@ fn html_finalize(html: &mut String) {
 
 fn main() -> std::io::Result<()> {
     // Get the input and output path from CLI. Read input file into a string.
-    let (input, output) = parse_cli_args();
+    let (input, mut output) = parse_cli_args()?;
     let source = std::fs::read_to_string(&input)?;
 
     // Use the input's extension, if any, to find the associated language.
     let ext = input.extension().map(|ext| ext.to_string_lossy());
-    let language = ext.as_ref().and_then(|ext| Language::find_by_any(ext));
+    let language = ext.as_ref().and_then(|ext| Language::find(ext));
 
     // Generate the HTML, using the language's highlighter.
     let mut html = html_prefix(&source);
     if let Some(language) = language {
-        for event in language.highlighter(&BASE_HIGHLIGHTS).highlight(&source) {
+        for event in language.highlighter(COMMON_CAPTURES).highlight(&source) {
             html_line_styled(&mut html, event.unwrap());
         }
     } else {
@@ -115,5 +119,5 @@ fn main() -> std::io::Result<()> {
     }
 
     html_finalize(&mut html);
-    std::fs::write(&output, html)
+    output.write_all(html.as_bytes())
 }

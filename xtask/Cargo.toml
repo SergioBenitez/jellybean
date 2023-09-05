@@ -4,6 +4,13 @@ version = "0.0.0"
 edition = "2021"
 publish = false
 
+[package.metadata.release]
+release = false
+
 [dependencies]
 toml_edit = "0.19"
 walkdir = "2.3"
+tar = "0.4"
+zstd = "0.12"
+globset = "0.4"
+indicatif = "0.17"

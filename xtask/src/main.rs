@@ -1,13 +1,10 @@
-#[macro_use]
-#[path = "../../lib/shared/util.rs"]
-mod util;
-
-#[path = "../../lib/shared/language.rs"]
-mod language;
-
 mod clean;
+mod util;
 mod fetch;
-mod sync_features;
+mod package;
+mod expand;
+mod sync;
+// mod sync_features;
 
 pub const USAGE: &str = r"
 usage:
@@ -17,12 +14,15 @@ example:
     cargo xtask vm --release
 
 tasks:
-                          default task: sync
-    sync [-u]             run fetch-languages and sync-features (-u updates)
-    fetch-languages [-u]  fetch all language sources (-u to update existing)
-    sync-features         synchronize crate features with available languages
-    clean                 remove all language sources and artifacts
+    main                  display this help message
+    fetch [-u]            fetch all language sources (-u to update existing)
+    package [-u, -f]      fetch and package (-u to update, -f to force)
+    expand                expand existing packs into crates
+    clean                 remove all fetched sources and package artifacts
 ";
+
+// sync [-u] (default)   run fetch-languages and sync-features (-u updates)
+// sync-features         sync crate features with available languages
 
 /// Print `msg` and exit.
 pub fn err_exit(msg: impl std::fmt::Display) -> ! {
@@ -42,11 +42,26 @@ fn main() {
 
     let args = std::env::args().collect::<Vec<_>>();
     let args = args.iter().skip(1).map(|s| s.as_str()).collect::<Vec<_>>();
-    match args.get(0) {
-        Some(&"sync") | None => { run!(fetch, &args); run!(sync_features, &args) },
-        Some(&"fetch-languages") => run!(fetch, &args),
-        Some(&"sync-features") => run!(sync_features, &args),
+    let cmd = args.get(0).and_then(|v| (!v.starts_with('-')).then_some(v));
+    match cmd {
+        // Some(&"sync") | None => run!(sync, &args),
+        // Some(&"-u") => run!(sync, &["sync", "-u"]),
+        Some(&"help") => err_exit("here's some helpful information"),
+        Some(&"fetch") => run!(fetch, &args),
         Some(&"clean") => run!(clean, &args),
+        Some(&"expand") => run!(expand, &args),
+        Some(&"sync") => run!(sync, &args),
+        Some(&"package") => {
+            run!(fetch, &args);
+            run!(package, &args);
+        }
+        None => {
+            run!(fetch, &args);
+            run!(package, &args);
+            run!(expand, &args);
+            run!(sync, &args);
+        }
         Some(cmd) => err_exit(format!("unknown task `{cmd}`")),
+        // // Some(&"sync-features") => run!(sync_features, &args),
     }
 }

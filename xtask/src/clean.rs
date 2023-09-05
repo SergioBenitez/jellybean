@@ -1,11 +1,19 @@
-use std::io;
+use crate::expand::PackExpander;
 
-use crate::language::Language;
-
-pub fn main(_: &[&str]) -> io::Result<()> {
-    if Language::checkout_dir().exists() {
-        std::fs::remove_dir_all(Language::checkout_dir())?;
+pub fn main(_: &[&str]) -> std::io::Result<()> {
+    let artifacts_dir = crate::crate_path!("artifacts");
+    if artifacts_dir.exists() {
+        println!("- removing {}", artifacts_dir.display());
+        std::fs::remove_dir_all(artifacts_dir)?;
+    } else {
+        println!(":: nothing to clean");
     }
 
-    crate::sync_features::sync([])
+    for entry in PackExpander::pack_dirs()? {
+        let path = entry?.path();
+        println!("- removing {}", path.display());
+        std::fs::remove_dir_all(&path)?;
+    }
+
+    crate::sync::main(&[])
 }

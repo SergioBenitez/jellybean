@@ -1,34 +1,34 @@
 use std::path::PathBuf;
 
 use yansi::{Style, Color::*, Paint};
-use jellybean::{Language, Highlight, BASE_HIGHLIGHTS};
+use jellybean::{Language, Highlight, Theme, COMMON_CAPTURES};
 
 // This is just an arbitrary theme.
-pub static THEME: [Style; BASE_HIGHLIGHTS.len()] = [
-    Blue.foreground(), // "attribute",
-    Green.dim(), // "label",
-    Red.bright(), // "constant",
-    Magenta.foreground(), // "function.builtin",
-    Magenta.foreground(), // "function.macro",
-    Blue.bright(), // "function",
-    Red.foreground(), // "keyword",
-    Magenta.bold(), // "operator",
-    Cyan.foreground(), // "property",
-    Primary.bold(), // "punctuation",
-    Primary.foreground(), // "punctuation.bracket",
-    Primary.bold(), // "punctuation.delimiter",
-    Green.bright(), // "string",
-    Green.bright(), // "string.special",
-    BrightRed.foreground(), // "tag",
-    BrightRed.foreground(), // "escape",
-    Blue.foreground(), // "type",
-    Yellow.foreground(), // "type.builtin",
-    Blue.foreground(), // "constructor",
-    Cyan.foreground(), // "variable",
-    Yellow.foreground(), //  "variable.builtin",
-    Red.foreground(), //  "variable.parameter",
-    BrightBlack.foreground(), // "comment",,
-    Magenta.foreground(), // "function.macro",
+pub static THEME: &[(&str, Style)] = &[
+    ("attribute", Blue.foreground()),
+    ("comment", BrightBlack.foreground()),
+    ("constant", Red.bright()),
+    ("constructor", Blue.foreground()),
+    ("escape", BrightRed.foreground()),
+    ("function", Blue.bright()),
+    ("function.builtin", Magenta.foreground()),
+    ("function.macro", Magenta.foreground()),
+    ("function.macro", Magenta.foreground()),
+    ("keyword", Red.foreground()),
+    ("label", Green.dim()),
+    ("operator", Magenta.bold()),
+    ("property", Cyan.foreground()),
+    ("punctuation", Primary.bold()),
+    ("punctuation.bracket", Primary.foreground()),
+    ("punctuation.delimiter", Primary.bold()),
+    ("string", Green.bright()),
+    ("string.special", Green.bright()),
+    ("tag", BrightRed.foreground()),
+    ("type", Blue.foreground()),
+    ("type.builtin", Yellow.foreground()),
+    ("variable", Cyan.foreground()),
+    ("variable.builtin", Yellow.foreground()),
+    ("variable.parameter", Red.foreground()),
 ];
 
 fn parse_cli_args() -> PathBuf {
@@ -52,10 +52,10 @@ fn parse_cli_args() -> PathBuf {
     path
 }
 
-fn print_styled_event(stack: &mut Vec<Style>, highlight: Highlight<'_>) {
+fn print_styled_event(stack: &mut Vec<Style>, theme: &Theme<Style>, highlight: Highlight<'_>) {
     match highlight {
-        Highlight::Start { index, .. } => {
-            let style = THEME[index];
+        Highlight::Start { group, .. } => {
+            let style = theme.find(group).copied().unwrap_or(Primary.foreground());
             stack.push(style);
             print!("{}", style.prefix());
         }
@@ -79,14 +79,15 @@ fn main() -> std::io::Result<()> {
 
     // Use the input's extension, if any, to find the associated language.
     let ext = input.extension().map(|ext| ext.to_string_lossy());
-    let language = ext.as_ref().and_then(|ext| Language::find_by_any(ext));
+    let language = ext.as_ref().and_then(|ext| Language::find(ext));
+    let theme: Theme<Style> = THEME.iter().copied().collect();
 
     // Print the source with terminal colors if we have a language highlighter.
     let mut stack = vec![];
     if let Some(language) = language {
-        language.highlighter(&BASE_HIGHLIGHTS)
+        language.highlighter(COMMON_CAPTURES)
             .highlight(&source)
-            .for_each(|event| print_styled_event(&mut stack, event.unwrap()))
+            .for_each(|event| print_styled_event(&mut stack, &theme, event.unwrap()))
     } else {
         let ext = ext.unwrap_or("[empty]".into());
         eprintln!("warning: emitting plaintext ({:?} not recognized)", ext);

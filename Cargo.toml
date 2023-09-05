@@ -3,5 +3,10 @@ resolver = "2"
 members = [
     "lib",
     "xtask",
+    "packs/*",
     "examples/*"
+]
+
+exclude = [
+    "packs/_template"
 ]

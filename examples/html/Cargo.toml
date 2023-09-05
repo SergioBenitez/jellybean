@@ -4,7 +4,10 @@ version = "0.0.0"
 edition = "2021"
 publish = false
 
+[package.metadata.release]
+release = false
+
 [dependencies]
-jellybean = { path = "../../lib/", features = ["all-languages"] }
+jellybean = { path = "../../lib/" }
 v_htmlescape = "0.15"
 memchr = "2.6"

@@ -1,8 +1,10 @@
+// use tree_sitter_highlight::HighlightConfiguration;
+// use ref_cast::{ref_cast_custom, RefCastCustom};
+
 use tree_sitter_highlight::HighlightConfiguration;
-use ref_cast::{ref_cast_custom, RefCastCustom};
 
 use crate::Highlighter;
-use crate::util::{cmp_ignore_case_ascii, const_compare};
+use crate::util::cmp_ignore_case_ascii;
 
 /// A materialized tree-sitter language.
 #[derive(Debug, Copy, Clone)]
@@ -34,25 +36,61 @@ pub struct Language {
     pub(crate) queries: &'static [(&'static str, &'static str)],
 }
 
-/// A set of languages.
-///
-/// This is a wrapper around a slice of [`Language`]s that provides methods to
-/// query the language set.
-#[repr(transparent)]
-#[derive(RefCastCustom)]
-pub struct LanguageSet([&'static Language]);
+macro_rules! define_lang {
+    ($($m:ident),*) => {
+        $(
+            #[allow(non_upper_case_globals)]
+            /// Generated from
+            #[doc = concat!("[`raw::", stringify!($m), "`](crate::raw::", stringify!($m), ").")]
+            pub const $m: Language = Language {
+                name: crate::raw::$m::NAME,
+                file_types: crate::raw::$m::FILE_TYPES,
+                language: crate::raw::$m::language,
+                queries: crate::raw::$m::QUERIES,
+            };
+        )*
+    }
+}
+
+macro_rules! collect {
+    ($($m:ident),*) => {
+        &[$(&Language::$m),*]
+    }
+}
 
 impl Language {
+    #[inline]
+    pub fn find(token: &str) -> Option<&'static Language> {
+        Self::find_by_name(token).or_else(|| Self::find_by_file_type(token))
+    }
+
+    #[inline]
     pub fn find_by_name(name: &str) -> Option<&'static Language> {
-        LanguageSet::ALL.find_by_name(name)
+        Self::position_by_name(name).and_then(|i| Language::ALL.get(i).copied())
     }
 
+    #[inline]
     pub fn find_by_file_type(file_type: &str) -> Option<&'static Language> {
-        LanguageSet::ALL.find_by_file_type(file_type)
+        Self::position_by_file_type(file_type).and_then(|i| Language::ALL.get(i).copied())
     }
 
-    pub fn find_by_any(token: &str) -> Option<&'static Language> {
-        LanguageSet::ALL.find_by_any(token)
+    pub fn position_by_name(name: &str) -> Option<usize> {
+        Language::ALL.binary_search_by(|l| cmp_ignore_case_ascii(l.name, name)).ok()
+    }
+
+    pub fn position_by_file_type(file_type: &str) -> Option<usize> {
+        Language::ALL.iter()
+            .map(|l| l.file_types)
+            .position(|a| a.binary_search_by(|v| cmp_ignore_case_ascii(v, file_type)).is_ok())
+    }
+
+    #[inline]
+    pub fn position(token: &str) -> Option<usize> {
+        Self::position_by_name(token).or_else(|| Self::position_by_file_type(token))
+    }
+
+    pub fn raw(&self) -> tree_sitter::Language {
+        (self.language)()
     }
 
     pub fn query(self: &'static Self, name: &str) -> Option<&'static str> {
@@ -81,62 +119,91 @@ impl Language {
     }
 }
 
-impl LanguageSet {
-    #[ref_cast_custom]
-    const fn _new<'a>(set: &'a [&'static Language]) -> &'a LanguageSet;
+impl Language {
+    pub const ALL: &'static [&'static Language] = with_all_languages!(collect);
 
-    pub const fn new<'a>(set: &'a [&'static Language]) -> &'a LanguageSet {
-        let set = Self::_new(set);
-
-        let mut i = 1;
-        while i < set.0.len() {
-            let (a, b) = (set.0[i - 1], set.0[i]);
-            if const_compare(a.name.as_bytes(), b.name.as_bytes()).is_gt() {
-                panic!("language set must be sorted by name");
-            }
-
-            i += 1;
-        }
-
-        set
-    }
-
-    pub(crate) fn position_by_name(&self, name: &str) -> Option<usize> {
-        self.binary_search_by(|lang| cmp_ignore_case_ascii(lang.name, name)).ok()
-    }
-
-    pub(crate) fn position_by_file_type(&self, file_type: &str) -> Option<usize> {
-        self.iter()
-            .map(|lang| lang.file_types)
-            .position(|a| a.binary_search_by(|v| cmp_ignore_case_ascii(v, file_type)).is_ok())
-    }
-
-    pub(crate) fn position_by_any(&self, token: &str) -> Option<usize> {
-        self.position_by_name(token).or_else(|| self.position_by_file_type(token))
-    }
-
-    pub fn find_by_name(&self, name: &str) -> Option<&'static Language> {
-        self.position_by_name(name).map(|i| self[i])
-    }
-
-    pub fn find_by_file_type(&self, file_type: &str) -> Option<&'static Language> {
-        self.position_by_file_type(file_type).map(|i| self[i])
-    }
-
-    pub fn find_by_any(&self, token: &str) -> Option<&'static Language> {
-        self.position_by_any(token).map(|i| self[i])
-    }
-
-    // #[inline]
-    // pub fn to_highlight_set(&self, recognize: &[&str]) -> HighlighterSet {
-    //     HighlighterSet::from_language_set(self, recognize)
-    // }
+    with_all_languages!(define_lang);
 }
 
-impl std::ops::Deref for LanguageSet {
-    type Target = [&'static Language];
-
-    fn deref(&self) -> &Self::Target {
-        &self.0
-    }
-}
+// // /// A set of languages.
+// // ///
+// // /// This is a wrapper around a slice of [`Language`]s that provides methods to
+// // /// query the language set.
+// // #[repr(transparent)]
+// // #[derive(RefCastCustom)]
+// // pub struct LanguageSet([&'static Language]);
+//
+// impl Language {
+//     pub fn find_by_name(name: &str) -> Option<&'static Language> {
+//         LanguageSet::ALL.find_by_name(name)
+//     }
+//
+//     pub fn find_by_file_type(file_type: &str) -> Option<&'static Language> {
+//         LanguageSet::ALL.find_by_file_type(file_type)
+//     }
+//
+//     pub fn find_by_any(token: &str) -> Option<&'static Language> {
+//         LanguageSet::ALL.find_by_any(token)
+//     }
+//
+// }
+//
+// // impl LanguageSet {
+// //     #[ref_cast_custom]
+// //     const fn _new<'a>(set: &'a [&'static Language]) -> &'a LanguageSet;
+// //
+// //     pub const fn new<'a>(set: &'a [&'static Language]) -> &'a LanguageSet {
+// //         let set = Self::_new(set);
+// //
+// //         let mut i = 1;
+// //         while i < set.0.len() {
+// //             let (a, b) = (set.0[i - 1], set.0[i]);
+// //             if const_compare(a.name.as_bytes(), b.name.as_bytes()).is_gt() {
+// //                 panic!("language set must be sorted by name");
+// //             }
+// //
+// //             i += 1;
+// //         }
+// //
+// //         set
+// //     }
+// //
+// //     pub(crate) fn position_by_name(&self, name: &str) -> Option<usize> {
+// //         self.binary_search_by(|lang| cmp_ignore_case_ascii(lang.name, name)).ok()
+// //     }
+// //
+// //     pub(crate) fn position_by_file_type(&self, file_type: &str) -> Option<usize> {
+// //         self.iter()
+// //             .map(|lang| lang.file_types)
+// //             .position(|a| a.binary_search_by(|v| cmp_ignore_case_ascii(v, file_type)).is_ok())
+// //     }
+// //
+// //     pub(crate) fn position_by_any(&self, token: &str) -> Option<usize> {
+// //         self.position_by_name(token).or_else(|| self.position_by_file_type(token))
+// //     }
+// //
+// //     pub fn find_by_name(&self, name: &str) -> Option<&'static Language> {
+// //         self.position_by_name(name).map(|i| self[i])
+// //     }
+// //
+// //     pub fn find_by_file_type(&self, file_type: &str) -> Option<&'static Language> {
+// //         self.position_by_file_type(file_type).map(|i| self[i])
+// //     }
+// //
+// //     pub fn find_by_any(&self, token: &str) -> Option<&'static Language> {
+// //         self.position_by_any(token).map(|i| self[i])
+// //     }
+// //
+// //     // #[inline]
+// //     // pub fn to_highlight_set(&self, recognize: &[&str]) -> HighlighterSet {
+// //     //     HighlighterSet::from_language_set(self, recognize)
+// //     // }
+// // }
+// //
+// // impl std::ops::Deref for LanguageSet {
+// //     type Target = [&'static Language];
+// //
+// //     fn deref(&self) -> &Self::Target {
+// //         &self.0
+// //     }
+// // }
