@@ -4,7 +4,7 @@ use yansi::{Style, Color::*, Paint};
 use jellybean::{Language, Highlight, Theme, COMMON_CAPTURES};
 
 // This is just an arbitrary theme.
-pub static THEME: &[(&str, Style)] = &[
+pub static THEME: Theme<Style> = Theme::new(&[
     ("attribute", Blue.foreground()),
     ("comment", BrightBlack.foreground()),
     ("constant", Red.bright()),
@@ -12,7 +12,6 @@ pub static THEME: &[(&str, Style)] = &[
     ("escape", BrightRed.foreground()),
     ("function", Blue.bright()),
     ("function.builtin", Magenta.foreground()),
-    ("function.macro", Magenta.foreground()),
     ("function.macro", Magenta.foreground()),
     ("keyword", Red.foreground()),
     ("label", Green.dim()),
@@ -29,7 +28,7 @@ pub static THEME: &[(&str, Style)] = &[
     ("variable", Cyan.foreground()),
     ("variable.builtin", Yellow.foreground()),
     ("variable.parameter", Red.foreground()),
-];
+]);
 
 fn parse_cli_args() -> PathBuf {
     let mut args = std::env::args_os();
@@ -52,10 +51,10 @@ fn parse_cli_args() -> PathBuf {
     path
 }
 
-fn print_styled_event(stack: &mut Vec<Style>, theme: &Theme<Style>, highlight: Highlight<'_>) {
+fn print_styled_event(stack: &mut Vec<Style>, highlight: Highlight<'_>) {
     match highlight {
         Highlight::Start { group, .. } => {
-            let style = theme.find(group).copied().unwrap_or(Primary.foreground());
+            let style = THEME.find(group).copied().unwrap_or(Primary.foreground());
             stack.push(style);
             print!("{}", style.prefix());
         }
@@ -80,14 +79,13 @@ fn main() -> std::io::Result<()> {
     // Use the input's extension, if any, to find the associated language.
     let ext = input.extension().map(|ext| ext.to_string_lossy());
     let language = ext.as_ref().and_then(|ext| Language::find(ext));
-    let theme: Theme<Style> = THEME.iter().copied().collect();
 
     // Print the source with terminal colors if we have a language highlighter.
     let mut stack = vec![];
     if let Some(language) = language {
         language.highlighter(COMMON_CAPTURES)
             .highlight(&source)
-            .for_each(|event| print_styled_event(&mut stack, &theme, event.unwrap()))
+            .for_each(|event| print_styled_event(&mut stack, event.unwrap()))
     } else {
         let ext = ext.unwrap_or("[empty]".into());
         eprintln!("warning: emitting plaintext ({:?} not recognized)", ext);

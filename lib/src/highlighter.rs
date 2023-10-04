@@ -7,24 +7,9 @@ type Result<T, E = tree_sitter_highlight::Error> = std::result::Result<T, E>;
 
 pub struct Highlighter<'a> {
     language: &'static Language,
-    highlights: Highlights<'a>,
+    captures: Captures<'a>,
     config: HighlightConfiguration,
     inner: TsHighlighter,
-}
-
-#[derive(Debug)]
-enum Highlights<'a> {
-    Owned(Vec<String>),
-    Borrowed(&'a [&'a str]),
-    #[cfg_attr(not(feature = "serde"), allow(dead_code))]
-    Partial(Vec<&'a str>),
-}
-
-struct FusedEvents<'a, I> {
-    highlights: &'a Highlights<'a>,
-    source: &'a str,
-    events: I,
-    done: bool
 }
 
 #[derive(Debug)]
@@ -43,12 +28,29 @@ pub enum Highlight<'a> {
     End,
 }
 
+/// Array of capture groups to match during highlighting.
+#[derive(Debug)]
+enum Captures<'a> {
+    Owned(Vec<String>),
+    Borrowed(&'a [&'a str]),
+    #[cfg_attr(not(feature = "serde"), allow(dead_code))]
+    Partial(Vec<&'a str>),
+}
+
+/// Iterator of highlight events coupled with
+struct FusedEvents<'a, I> {
+    captures: &'a Captures<'a>,
+    source: &'a str,
+    events: I,
+    done: bool
+}
+
 impl<'c> Highlighter<'c> {
-    pub fn new(language: &'static Language, highlights: &'c [&'c str]) -> Self {
+    pub fn new(language: &'static Language, captures: &'c [&'c str]) -> Self {
         Self {
             language,
-            highlights: Highlights::Borrowed(highlights),
-            config: language.highlight_config(highlights),
+            captures: Captures::Borrowed(captures),
+            config: language.highlight_config(captures),
             inner: TsHighlighter::new(),
         }
     }
@@ -56,7 +58,7 @@ impl<'c> Highlighter<'c> {
     pub fn into_owned(self) -> Highlighter<'static> {
         Highlighter {
             language: self.language,
-            highlights: self.highlights.into_owned(),
+            captures: self.captures.into_owned(),
             config: self.config,
             inner: self.inner,
         }
@@ -70,9 +72,23 @@ impl<'c> Highlighter<'c> {
         &'a mut self,
         source: &'a str,
     ) -> impl Iterator<Item = Result<Highlight<'a>>> + 'a {
-        let highlights = &self.highlights;
+        let captures = &self.captures;
         let events = self.inner.highlight(&self.config, source.as_bytes(), None, move |_| None);
-        FusedEvents { highlights, source, events, done: false }
+        FusedEvents { captures, source, events, done: false }
+    }
+}
+
+impl Captures<'_> {
+    fn into_owned(self) -> Captures<'static> {
+        match self {
+            Captures::Owned(v) => Captures::Owned(v),
+            Captures::Borrowed(s) => {
+                Captures::Owned(s.into_iter().map(|s| s.to_string()).collect())
+            }
+            Captures::Partial(v) => {
+                Captures::Owned(v.into_iter().map(|s| s.to_string()).collect())
+            }
+        }
     }
 }
 
@@ -95,7 +111,7 @@ impl<'a, I> Iterator for FusedEvents<'a, Result<I>>
                     start, end,
                 },
                 HighlightEvent::HighlightStart(h) => Highlight::Start {
-                    group: &self.highlights[h.0],
+                    group: &self.captures[h.0],
                     index: h.0,
                 },
                 HighlightEvent::HighlightEnd => Highlight::End,
@@ -112,6 +128,18 @@ impl<'a, I> Iterator for FusedEvents<'a, Result<I>>
     }
 }
 
+impl<'a> std::ops::Index<usize> for Captures<'a> {
+    type Output = str;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        match self {
+            Captures::Owned(v) => &v[index],
+            Captures::Borrowed(s) => &s[index],
+            Captures::Partial(v) => &v[index],
+        }
+    }
+}
+
 #[cfg(feature = "serde")]
 mod serde_impl {
     use tree_sitter::SerializationError;
@@ -120,17 +148,17 @@ mod serde_impl {
 
     use super::*;
 
-    type SerializationData<'a> = (Highlights<'a>, SerializableHighlightConfig);
+    type SerializationData<'a> = (Captures<'a>, SerializableHighlightConfig);
 
     impl<'c> Highlighter<'c> {
         pub fn serializable(self) -> Result<impl Serialize + 'c, SerializationError> {
-            Ok((self.highlights, self.config.serializable()?) as SerializationData<'_>)
+            Ok((self.captures, self.config.serializable()?) as SerializationData<'_>)
         }
     }
 
     impl<'de> Deserialize<'de> for Highlighter<'de> {
         fn deserialize<D: Deserializer<'de>>(de: D) -> Result<Self, D::Error> {
-            let (highlights, config) = SerializationData::deserialize(de)?;
+            let (captures, config) = SerializationData::deserialize(de)?;
             let language_name = &config.metadata.language_name;
             let language = Language::find_by_name(language_name)
                 .ok_or_else(|| <D::Error>::custom(format!("missing language: {language_name}")))?;
@@ -141,51 +169,25 @@ mod serde_impl {
             Ok(Highlighter {
                 language,
                 config,
-                highlights: highlights.into(),
+                captures: captures.into(),
                 inner: TsHighlighter::new(),
             })
         }
     }
 
-    impl<'de> Deserialize<'de> for Highlights<'de> {
+    impl<'de> Deserialize<'de> for Captures<'de> {
         fn deserialize<D: Deserializer<'de>>(de: D) -> Result<Self, D::Error> {
-            <Vec<&'de str>>::deserialize(de).map(Highlights::Partial)
+            <Vec<&'de str>>::deserialize(de).map(Captures::Partial)
         }
     }
 
-    impl Serialize for Highlights<'_> {
+    impl Serialize for Captures<'_> {
         fn serialize<S: Serializer>(&self, ser: S) -> Result<S::Ok, S::Error> {
             match self {
-                Highlights::Owned(v) => v.serialize(ser),
-                Highlights::Borrowed(v) => v.serialize(ser),
-                Highlights::Partial(v) => v.serialize(ser),
+                Captures::Owned(v) => v.serialize(ser),
+                Captures::Borrowed(v) => v.serialize(ser),
+                Captures::Partial(v) => v.serialize(ser),
             }
-        }
-    }
-}
-
-impl Highlights<'_> {
-    fn into_owned(self) -> Highlights<'static> {
-        match self {
-            Highlights::Owned(v) => Highlights::Owned(v),
-            Highlights::Borrowed(s) => {
-                Highlights::Owned(s.into_iter().map(|s| s.to_string()).collect())
-            }
-            Highlights::Partial(v) => {
-                Highlights::Owned(v.into_iter().map(|s| s.to_string()).collect())
-            }
-        }
-    }
-}
-
-impl<'a> std::ops::Index<usize> for Highlights<'a> {
-    type Output = str;
-
-    fn index(&self, index: usize) -> &Self::Output {
-        match self {
-            Highlights::Owned(v) => &v[index],
-            Highlights::Borrowed(s) => &s[index],
-            Highlights::Partial(v) => &v[index],
         }
     }
 }

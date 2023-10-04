@@ -52,10 +52,19 @@ impl PackMetdata {
             .expect("deps tables")
             .retain(|k, _| !k.starts_with("jellybean-pack"));
 
-        let serde_feature = manifest["features"]["serde"].clone();
+        let explicit_features = manifest["package"]["metadata"]["features"]
+            .as_array().expect("package.metadata.features array")
+            .iter()
+            .map(|v| v.as_str().expect("package.metadata.feature is [string]"))
+            .map(|feature| (feature.to_string(), manifest["features"][feature].clone()))
+            .collect::<Vec<_>>();
+
         manifest["features"].as_table_mut().expect("feature tables").clear();
+        for (name, deps) in explicit_features {
+            manifest["features"][name] = deps;
+        }
+
         manifest["features"]["default"] = value(Array::new());
-        manifest["features"]["serde"] = serde_feature;
         for pack in metadata {
             let mut dep = Table::new();
             dep["path"] = value(&pack.local_path);
