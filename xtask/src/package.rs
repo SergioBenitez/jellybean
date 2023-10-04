@@ -94,7 +94,7 @@ impl PackBuilder {
             size: 0,
         });
 
-        println!("+ {}", self.current.as_ref().unwrap().path.display());
+        // println!("+ {}", self.current.as_ref().unwrap().path.display());
         Ok(self.current.as_mut().unwrap())
     }
 
@@ -183,7 +183,7 @@ impl PackArchive {
     pub fn add(&mut self, path: &Path) -> io::Result<()> {
         let name = diff_paths(path, TsLanguage::checkout_container()).unwrap();
 
-        println!("+ {}", name.display());
+        // println!("+ {}", name.display());
         self.size += path.metadata()?.len();
         self.builder.append_path_with_name(path, name)
     }

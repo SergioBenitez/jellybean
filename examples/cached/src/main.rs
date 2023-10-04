@@ -3,7 +3,7 @@ use rayon::prelude::*;
 
 const SLOW_LANGUAGES: &[&str] = &[
     "racket", "nix", "bass", "scheme", "perl", "make", "pascal", "elixir",
-    "glimmer", "yuck",
+    "glimmer",
     // "svelte", "haskell", "ruby", "python", "php",
 ];
 
@@ -14,15 +14,14 @@ fn main() {
     println!("\n-- divided serialization --");
     run_split();
 
-    println!("\n-- one big blog serialization --");
+    println!("\n-- one big blob serialization --");
     run_big_blob();
 
-    println!("\n-- per language timings --");
-    run_per_language();
+    println!("\n-- per language timings (top 25) --");
+    run_per_language(25);
 }
 
 fn run_split() {
-    println!("genarating dumps");
     let start = std::time::Instant::now();
     let serializable_highlighters = Language::ALL.par_iter()
         .filter(|lang| !SLOW_LANGUAGES.contains(&lang.name))
@@ -39,7 +38,7 @@ fn run_split() {
         .collect::<Result<Vec<_>, _>>()
         .unwrap();
 
-    println!("serialization took {}us", se_start.elapsed().as_micros());
+    println!("parallel serialization took {}us", se_start.elapsed().as_micros());
 
     let de_start = std::time::Instant::now();
     let highlighters: Vec<Highlighter<'_>> = serialized.par_iter()
@@ -48,12 +47,11 @@ fn run_split() {
         .unwrap();
 
     assert!(highlighters.len() == serializable_highlighters.len());
-    println!("deserialization took {}us", de_start.elapsed().as_micros());
+    println!("parallel deserialization took {}us", de_start.elapsed().as_micros());
     println!("complete round-trip time: {}ms", start.elapsed().as_millis());
 }
 
 fn run_big_blob() {
-    println!("genarating dumps");
     let start = std::time::Instant::now();
     let serializable_highlighters = Language::ALL.par_iter()
         .filter(|lang| !SLOW_LANGUAGES.contains(&lang.name))
@@ -67,7 +65,7 @@ fn run_big_blob() {
     let se_start = std::time::Instant::now();
     let bytes = bincode::serialize(&serializable_highlighters).unwrap();
     let len = bytes.len() >> 10;
-    println!("serialization took {}ms ({} KiB)", se_start.elapsed().as_millis(), len);
+    println!("serialization took {}us ({} KiB)", se_start.elapsed().as_micros(), len);
 
     let de_start = std::time::Instant::now();
     let highlighters: Vec<Highlighter<'_>> = bincode::deserialize(&bytes).unwrap();
@@ -76,7 +74,7 @@ fn run_big_blob() {
     println!("complete round-trip time: {}ms", start.elapsed().as_millis());
 }
 
-fn run_per_language() {
+fn run_per_language(top: usize) {
     let mut results: Vec<(_, u128)> = Language::ALL.iter()
         .map(|language| language.highlighter(COMMON_CAPTURES))
         .map(|highlighter| highlighter.serializable().unwrap())
@@ -89,7 +87,8 @@ fn run_per_language() {
         .collect::<Vec<_>>();
 
     results.sort_by_key(|(_, duration)| *duration);
-    for (i, (hl, microsecond)) in results.iter().rev().take(20).enumerate() {
+    for (i, (hl, microsecond)) in results.iter().rev().take(top).enumerate() {
+        let i = i + 1;
         println!("{i:>2} {} took {microsecond}us", hl.language().name);
     }
 }

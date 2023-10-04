@@ -3,8 +3,10 @@ use std::path::{Path, PathBuf};
 use std::collections::HashSet;
 use std::sync::OnceLock;
 
+use indicatif::{ProgressBar, ProgressStyle};
+
 use crate::util::{Semaphore, visible, flag};
-use crate::{crate_path, cmd};
+use crate::{crate_path, cmd, vprintln};
 
 /// Metadata that defines the source location of a tree-sitter language parser.
 #[derive(Debug)]
@@ -47,35 +49,41 @@ impl TsLanguage {
     }
 
     // Clones the source `self` into `self.checkout_path()`.
-    pub fn fetch(&self, update: bool) -> io::Result<()> {
+    pub fn fetch(&self, update: bool, v: bool) -> io::Result<()> {
         const FORBIDDEN_FILES: &[&str] = &["Cargo.toml", "build.rs"];
 
         let lang_dir = self.checkout_path();
         let already_exists = lang_dir.exists();
+        let branch = self.branch.unwrap_or("default");
+        let verbosity = if v { "--progress" } else { "-q" };
         if already_exists {
             if update {
-                // println!("= {} ({}:{})",
-                //     self.name, self.git_url, self.branch.unwrap_or("default"));
-                cmd!(&lang_dir => "git", "pull", "-q", "--depth=1")?;
+                vprintln!(v, "= {} ({}:{branch})", self.name, self.git_url);
+                cmd!(&lang_dir => "git", "pull", "--depth=1", verbosity)?;
             }
         } else {
-            println!("+ {} ({}:{})", self.name, self.git_url, self.branch.unwrap_or("default"));
+            vprintln!(v, "+ {} ({}:{branch})", self.name, self.git_url);
+            let depth = match (&self.branch, &self.main) {
+                (None, None) => &["--depth=1"][..],
+                _ => &["--depth=1", "--no-single-branch"][..],
+            };
+
             cmd! {
-                "git", "clone", "--depth=1", "--no-single-branch",
-                self.git_url,
-                &lang_dir
+                "git", "clone", #depth, verbosity, self.git_url, &lang_dir
             }?;
 
             if let Some(branch) = self.branch {
-                println!("= switching to {branch}");
-                cmd!(&lang_dir => "git", "checkout", branch)?;
+                vprintln!(v, "= switching to {branch}");
+                cmd!(&lang_dir => "git", "fetch", verbosity, "--depth=1", "origin", branch)?;
+                cmd!(&lang_dir => "git", "switch", verbosity, branch)?;
             }
         }
 
         if let Some(main) = self.main {
             if !already_exists || update {
-                // println!("= {} package.json from {main} branch", self.name);
-                cmd!(&lang_dir => "git", "checkout", "-q", main, "package.json")?;
+                vprintln!(v, "= {} package.json from {main} branch", self.name);
+                cmd!(&lang_dir => "git", "fetch", verbosity, "--depth=1", "origin", main)?;
+                cmd!(&lang_dir => "git", "checkout", verbosity, main, "package.json")?;
             }
         }
 
@@ -84,7 +92,7 @@ impl TsLanguage {
         for entry in walker.filter_entry(visible) {
             let entry = entry?;
             if FORBIDDEN_FILES.iter().any(|&x| x == entry.file_name()) {
-                println!("- removing {}", entry.path().display());
+                vprintln!(v, "- removing {}", entry.path().display());
                 std::fs::remove_file(entry.path())?;
             }
         }
@@ -92,40 +100,49 @@ impl TsLanguage {
         Ok(())
     }
 
-    pub fn fetch_and_sync_all(update: bool) -> io::Result<()> {
+    pub fn fetch_and_sync_all(update: bool, v: bool) -> io::Result<()> {
         // Remove any language not in the source file.
+        let declared_languages = TsLanguage::iter().collect::<Vec<_>>();
         if Self::checkout_container().exists() {
-            let declared_language_paths = TsLanguage::iter()
+            let declared_language_paths = declared_languages.iter()
                 .map(|lang| lang.checkout_path())
                 .collect::<HashSet<_>>();
 
             for entry in Self::checkout_container().read_dir()? {
                 let entry_path = entry?.path();
                 if !declared_language_paths.contains(&entry_path) {
-                    println!("- removing {}", entry_path.display());
+                    vprintln!(v, "- removing {}", entry_path.display());
                     std::fs::remove_dir_all(entry_path)?;
                 }
             }
         }
 
+        let template = "{spinner}{msg} {prefix}: {wide_bar} {pos}/{len}";
+        let progress = ProgressBar::new(declared_languages.len() as u64)
+            .with_style(ProgressStyle::with_template(template).unwrap())
+            .with_prefix("progress");
+
         // Fetch/update all languages in the source file.
         let mut threads = vec![];
         let gate = Semaphore::new(32);
-        for lang in TsLanguage::iter() {
+        for lang in declared_languages {
             let token = gate.take();
+            let progress = progress.clone();
             threads.push(std::thread::spawn(move || {
-                let _token = token;
-                lang.fetch(update).expect(lang.name)
+                lang.fetch(update, v).expect(lang.name);
+                drop(token);
+                progress.inc(1);
             }));
         }
 
         threads.into_iter().for_each(|t| t.join().expect("fetch panicked"));
+        progress.finish_with_message("✓");
         Ok(())
     }
 }
 
 pub fn main(args: &[&str]) -> io::Result<()> {
-    let update = flag(args, "u");
-    println!(":: fetching languages (updating? {update})");
-    TsLanguage::fetch_and_sync_all(update)
+    let (update, verbose) = (flag(args, "u"), flag(args, "v"));
+    println!(":: fetching languages (updating? {update}, verbose? {verbose})");
+    TsLanguage::fetch_and_sync_all(update, verbose)
 }

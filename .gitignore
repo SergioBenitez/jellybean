@@ -1,6 +1,7 @@
 # generate artifacts
 **/artifacts
 packs/**
+!packs/_template
 !packs/_template/**
 lib/metadata.rs
 

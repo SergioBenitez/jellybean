@@ -3,11 +3,18 @@ use std::io::{self, BufReader, BufWriter, Write};
 use std::path::{PathBuf, Path};
 
 use rayon::prelude::*;
-use serde_json::{Map, Value};
+use tinyjson::JsonValue;
 
 const HIGHLIGHT_QUERIES: &[&str] = &["locals", "highlights", "injections"];
 const LANGUAGE_PACK: &str = "pack.tar.zst";
 const LANGUAGE_DIR: &str = "languages";
+
+type JsonMap = std::collections::HashMap<String, JsonValue>;
+type JsonArray = Vec<JsonValue>;
+
+fn take_json_value(value: &mut JsonValue) -> JsonValue {
+    std::mem::replace(value, JsonValue::Null)
+}
 
 #[derive(Debug, Default)]
 struct TsMetadata {
@@ -48,17 +55,17 @@ impl TsMetadata {
             .expect(&format!("{name}: missing package.json ({root_candidates:?})"));
 
         let mut file_types = ts_json.get("file-types")
-            .and_then(|ft| ft.as_array())
+            .and_then(|ft| ft.get::<JsonArray>())
             .into_iter()
             .flat_map(|array| array.iter())
-            .filter_map(|v| v.as_str())
+            .filter_map(|v| v.get::<String>())
             .map(|s| s.to_string())
             .collect::<Vec<_>>();
 
         file_types.sort();
 
         let scope = ts_json.get("scope")
-            .and_then(|scope| scope.as_str())
+            .and_then(|scope| scope.get::<String>())
             .and_then(|scope| scope.rsplit('.').next())
             .map(|scope| path.parent().expect("language parent dir").join(scope))
             .unwrap_or(PathBuf::new());
@@ -69,7 +76,10 @@ impl TsMetadata {
             .unwrap_or_else(|| {
                 HIGHLIGHT_QUERIES.iter()
                     .filter_map(|query| ts_json.get(*query).map(|value| (query, value)))
-                    .filter_map(|(name, v)| Some((name, v.as_array()?.first()?.as_str()?)))
+                    .filter_map(|(name, v)| {
+                        let value = v.get::<JsonArray>()?.first()?.get::<String>()?;
+                        Some((name, value))
+                    })
                     .map(|(name, path)| (name.to_string(), scope.join(path)))
                     .collect()
             });
@@ -77,29 +87,34 @@ impl TsMetadata {
         TsMetadata { name, enabled, src_dir, file_types, queries, description, }
     }
 
-    fn parse_package_json(name: &str, path: &Path) -> Option<(String, Map<String, Value>)> {
+    fn parse_package_json(name: &str, path: &Path) -> Option<(String, JsonMap)> {
         let reader = io::BufReader::new(File::open(path).ok()?);
-        let mut json: Value = serde_json::from_reader(reader).ok()?;
+        let value: JsonValue = io::read_to_string(reader).ok()?.parse().ok()?;
+        let mut json: JsonMap = value.try_into().ok()?;
 
         let _ = json.get("name")?;
         let description = json.get("description")
-            .and_then(|s| s.as_str())
+            .and_then(|s| s.get::<String>())
             .filter(|s| !s.is_empty())
             .map(|s| s.to_string())
             .unwrap_or_default();
 
-        let map = match json.get_mut("tree-sitter").map(std::mem::take) {
-            Some(Value::Object(map)) => Some(map),
-            Some(Value::Array(mut array)) => {
+        let map = match json.get_mut("tree-sitter").map(take_json_value) {
+            Some(JsonValue::Object(map)) => Some(map),
+            Some(JsonValue::Array(mut array)) => {
                 let inner = array.iter_mut()
-                    .find(|v| v.get("path").map_or(false, |v| v == name));
+                    .filter_map(|v| v.get_mut::<JsonMap>())
+                    .find(|v| v.get("path")
+                        .and_then(|path| path.get::<String>())
+                        .map(|path| path == &name)
+                        .unwrap_or(false));
 
                 let item = match inner {
-                    Some(item) => item,
-                    None => array.first_mut()?,
+                    Some(value) => Some(value),
+                    None => array.first_mut().and_then(|v| v.get_mut::<JsonMap>()),
                 };
 
-                item.as_object_mut().map(std::mem::take)
+                item.map(std::mem::take)
             },
             _ => None
         };

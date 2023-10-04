@@ -1,23 +1,24 @@
-mod clean;
 mod util;
+mod clean;
 mod fetch;
 mod package;
 mod expand;
 mod sync;
-// mod sync_features;
 
 pub const USAGE: &str = r"
 usage:
     cargo xtask [task args..]
 
-example:
-    cargo xtask vm --release
+examples:
+    cargo xtask
+    cargo xtask clean
 
-tasks:
-    main                  display this help message
+tasks: [default: fetch + package + expand + sync]
+    help                  display this help message
     fetch [-u]            fetch all language sources (-u to update existing)
-    package [-u, -f]      fetch and package (-u to update, -f to force)
-    expand                expand existing packs into crates
+    package [-u, -f]      fetch and compress into packs (-u to update, -f to force)
+    expand [-f]           expand existing packs into crates (-f to force)
+    sync                  synchronize jellybean lib metadata with packs
     clean                 remove all fetched sources and package artifacts
 ";
 
@@ -42,11 +43,10 @@ fn main() {
 
     let args = std::env::args().collect::<Vec<_>>();
     let args = args.iter().skip(1).map(|s| s.as_str()).collect::<Vec<_>>();
+    let help = crate::util::flag(&args, "h");
     let cmd = args.get(0).and_then(|v| (!v.starts_with('-')).then_some(v));
     match cmd {
-        // Some(&"sync") | None => run!(sync, &args),
-        // Some(&"-u") => run!(sync, &["sync", "-u"]),
-        Some(&"help") => err_exit("here's some helpful information"),
+        Some(&"help") | _ if help => err_exit("jellybean xtask help"),
         Some(&"fetch") => run!(fetch, &args),
         Some(&"clean") => run!(clean, &args),
         Some(&"expand") => run!(expand, &args),
@@ -62,6 +62,5 @@ fn main() {
             run!(sync, &args);
         }
         Some(cmd) => err_exit(format!("unknown task `{cmd}`")),
-        // // Some(&"sync-features") => run!(sync_features, &args),
     }
 }

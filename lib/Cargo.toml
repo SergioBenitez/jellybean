@@ -159,19 +159,18 @@ ungrammar = ["jellybean-pack-1/ungrammar"]
 usd = ["jellybean-pack-1/usd"]
 uxntal = ["jellybean-pack-1/uxntal"]
 v = ["jellybean-pack-1/v"]
-vala = ["jellybean-pack-2/vala"]
-vhs = ["jellybean-pack-2/vhs"]
-vim = ["jellybean-pack-2/vim"]
-wgsl = ["jellybean-pack-2/wgsl"]
-xml = ["jellybean-pack-2/xml"]
-yang = ["jellybean-pack-2/yang"]
-yuck = ["jellybean-pack-2/yuck"]
-zig = ["jellybean-pack-2/zig"]
+vala = ["jellybean-pack-1/vala"]
+vhs = ["jellybean-pack-1/vhs"]
+vim = ["jellybean-pack-1/vim"]
+wgsl = ["jellybean-pack-1/wgsl"]
+xml = ["jellybean-pack-1/xml"]
+yang = ["jellybean-pack-1/yang"]
+yuck = ["jellybean-pack-1/yuck"]
+zig = ["jellybean-pack-1/zig"]
 
 [dependencies]
 jellybean-pack-0 = { path = "../packs/pack-0", version = "0.0.2", default-features = false }
 jellybean-pack-1 = { path = "../packs/pack-1", version = "0.0.2", default-features = false }
-jellybean-pack-2 = { path = "../packs/pack-2", version = "0.0.2", default-features = false }
 
 [dependencies.serde]
 version = "1"

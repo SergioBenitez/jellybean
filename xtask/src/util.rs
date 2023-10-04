@@ -64,6 +64,15 @@ macro_rules! crate_path {
    }
 }
 
+#[macro_export]
+macro_rules! vprintln {
+    ($verbose_flag:expr, $($token:tt)*) => {
+        if $verbose_flag {
+            println!($($token)*);
+        }
+   }
+}
+
 pub fn visible(entry: &walkdir::DirEntry) -> bool {
     entry.file_name()
         .to_str()
@@ -185,5 +194,6 @@ impl Drop for Token {
 pub fn flag(args: &[&str], arg: &str) -> bool {
     args.iter()
         .filter_map(|v| v.strip_prefix("-"))
+        .filter(|v| v.starts_with(|c: char| c.is_ascii_alphabetic()))
         .any(|v| v.contains(arg))
 }
