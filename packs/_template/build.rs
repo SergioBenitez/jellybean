@@ -40,6 +40,10 @@ impl TsMetadata {
             path.join(&name),
             path.join(format!("tree-sitter-{name}")),
             path.join(format!("tree_sitter_{name}")),
+            path.join(format!("tree-sitter-{}", name.replace('_', "-"))),
+            path.join(format!("tree-sitter-{}", name.replace('-', "_"))),
+            path.join(format!("tree-sitter_{}", name.replace('_', "-"))),
+            path.join(format!("tree-sitter_{}", name.replace('-', "_"))),
             path.clone(),
         ];
 

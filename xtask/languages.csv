@@ -79,7 +79,8 @@ luap,https://github.com/amaanq/tree-sitter-luap
 luau,https://github.com/amaanq/tree-sitter-luau
 m68k,https://github.com/grahambates/tree-sitter-m68k
 make,https://github.com/alemuller/tree-sitter-make
-markdown,https://github.com/MDeiml/tree-sitter-markdown
+markdown,https://github.com/MDeiml/tree-sitter-markdown,split_parser
+markdown-inline,https://github.com/MDeiml/tree-sitter-markdown,split_parser
 meson,https://github.com/Decodetalkers/tree-sitter-meson
 ninja,https://github.com/alemuller/tree-sitter-ninja
 nix,https://github.com/cstrahan/tree-sitter-nix

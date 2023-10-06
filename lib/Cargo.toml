@@ -14,11 +14,12 @@ include = ["**/*"]
 
 [package.metadata]
 # list features we don't want `xtask sync` to touch
-features = ["serde"]
+features = ["serde", "precached"]
 
 [features]
 serde = ["dep:serde", "tree-sitter/serde", "tree-sitter-highlight/serde"]
-default = ["ada", "agda", "astro", "bash", "bass", "bibtex", "bicep", "bitbake", "c", "c_sharp", "cairo", "capnp", "clojure", "corn", "cpon", "cpp", "css", "csv", "cuda", "cue", "d", "dart", "devicetree", "diff", "dockerfile", "dot", "dtd", "eex", "elisp", "elixir", "elm", "elsa", "elvish", "embedded_template", "erlang", "firrtl", "fish", "formula", "fortran", "fsh", "func", "fusion", "git_config", "git_rebase", "gitattributes", "gitcommit", "gleam", "glimmer", "glsl", "go", "gomod", "gosum", "gowork", "hack", "hare", "haskell", "heex", "hjson", "hocon", "html", "htmldjango", "http", "hurl", "ispc", "janet_simple", "java", "javascript", "jsdoc", "json", "jsonnet", "kdl", "kotlin", "lalrpop", "llvm", "llvm_mir", "lua", "luadoc", "luap", "luau", "m68k", "make", "markdown", "meson", "ninja", "nix", "objc", "ocaml", "ocamllex", "odin", "org", "pascal", "perl", "pgn", "php", "po", "pod", "pony", "prisma", "proto", "prql", "psv", "puppet", "python", "ql", "qmldir", "qmljs", "r", "racket", "rasi", "re2c", "regex", "rego", "ron", "ruby", "rust", "scheme", "scss", "smali", "smithy", "solidity", "sql", "sql_bigquery", "sqlite", "squirrel", "ssh_client_config", "starlark", "supercollider", "svelte", "swift", "systemtap", "t32", "tablegen", "thrift", "tiger", "tlaplus", "toml", "tsv", "tsx", "twig", "typescript", "ungrammar", "usd", "uxntal", "v", "vala", "vhs", "vim", "wgsl", "xml", "yang", "yuck", "zig"]
+precached = ["dep:bincode", "dep:rayon", "serde"]
+default = ["ada", "agda", "astro", "bash", "bass", "bibtex", "bicep", "bitbake", "c", "c_sharp", "cairo", "capnp", "clojure", "corn", "cpon", "cpp", "css", "csv", "cuda", "cue", "d", "dart", "devicetree", "diff", "dockerfile", "dot", "dtd", "eex", "elisp", "elixir", "elm", "elsa", "elvish", "embedded_template", "erlang", "firrtl", "fish", "formula", "fortran", "fsh", "func", "fusion", "git_config", "git_rebase", "gitattributes", "gitcommit", "gleam", "glimmer", "glsl", "go", "gomod", "gosum", "gowork", "hack", "hare", "haskell", "heex", "hjson", "hocon", "html", "htmldjango", "http", "hurl", "ispc", "janet_simple", "java", "javascript", "jsdoc", "json", "jsonnet", "kdl", "kotlin", "lalrpop", "llvm", "llvm_mir", "lua", "luadoc", "luap", "luau", "m68k", "make", "markdown", "markdown_inline", "meson", "ninja", "nix", "objc", "ocaml", "ocamllex", "odin", "org", "pascal", "perl", "pgn", "php", "po", "pod", "pony", "prisma", "proto", "prql", "psv", "puppet", "python", "ql", "qmldir", "qmljs", "r", "racket", "rasi", "re2c", "regex", "rego", "ron", "ruby", "rust", "scheme", "scss", "smali", "smithy", "solidity", "sql", "sql_bigquery", "sqlite", "squirrel", "ssh_client_config", "starlark", "supercollider", "svelte", "swift", "systemtap", "t32", "tablegen", "thrift", "tiger", "tlaplus", "toml", "tsv", "tsx", "twig", "typescript", "ungrammar", "usd", "uxntal", "v", "vala", "vhs", "vim", "wgsl", "xml", "yang", "yuck", "zig"]
 ada = ["jellybean-pack-0/ada"]
 agda = ["jellybean-pack-0/agda"]
 astro = ["jellybean-pack-0/astro"]
@@ -101,6 +102,7 @@ luau = ["jellybean-pack-0/luau"]
 m68k = ["jellybean-pack-0/m68k"]
 make = ["jellybean-pack-0/make"]
 markdown = ["jellybean-pack-0/markdown"]
+markdown_inline = ["jellybean-pack-0/markdown_inline"]
 meson = ["jellybean-pack-0/meson"]
 ninja = ["jellybean-pack-0/ninja"]
 nix = ["jellybean-pack-0/nix"]
@@ -173,16 +175,11 @@ yuck = ["jellybean-pack-1/yuck"]
 zig = ["jellybean-pack-1/zig"]
 
 [dependencies]
+serde = { version = "1", optional = true }
+bincode = { version = "1.3", optional = true }
+uncased = "0.9.9"
 jellybean-pack-0 = { path = "../packs/pack-0", version = "0.0.2", default-features = false }
 jellybean-pack-1 = { path = "../packs/pack-1", version = "0.0.2", default-features = false }
-
-[dependencies.serde]
-version = "1"
-optional = true
-
-[dependencies.rustc-hash]
-version = "1.1"
-optional = true
 
 [dependencies.tree-sitter]
 version = "0.20"
@@ -191,3 +188,18 @@ package = "jellybean-tree-sitter"
 [dependencies.tree-sitter-highlight]
 version = "0.20"
 package = "jellybean-tree-sitter-highlight"
+
+[build-dependencies.tree-sitter]
+version = "0.20"
+package = "jellybean-tree-sitter"
+
+[build-dependencies.tree-sitter-highlight]
+version = "0.20"
+package = "jellybean-tree-sitter-highlight"
+
+[build-dependencies]
+serde = { version = "1", optional = true }
+bincode = { version = "1.3", optional = true }
+rayon = { version = "1.8", optional = true }
+jellybean-pack-0 = { path = "../packs/pack-0", version = "0.0.2", default-features = false }
+jellybean-pack-1 = { path = "../packs/pack-1", version = "0.0.2", default-features = false }

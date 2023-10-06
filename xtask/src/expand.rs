@@ -100,6 +100,7 @@ impl PackExpander {
             .filter_map(|e| e.ok())
             .filter_map(|e| e.path().ok().and_then(|p| p.iter().next().map(|v| v.to_os_string())))
             .filter_map(|name| name.into_string().ok())
+            .map(|name| name.replace('-', "_"))
             .collect::<HashSet<_>>();
 
         cargo_toml["features"].as_table_mut().unwrap().clear();

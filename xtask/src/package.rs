@@ -7,9 +7,9 @@ use globset::GlobSet;
 use indicatif::{ProgressBar, MultiProgress, ProgressStyle, ProgressFinish};
 use walkdir::{WalkDir, DirEntry};
 
-use crate::crate_path;
 use crate::fetch::TsLanguage;
 use crate::util::{visible, globset, diff_paths, flag};
+use crate::{crate_path, vprintln};
 
 #[derive(Default)]
 pub struct PackBuilder {
@@ -183,7 +183,7 @@ impl PackArchive {
     pub fn add(&mut self, path: &Path) -> io::Result<()> {
         let name = diff_paths(path, TsLanguage::checkout_container()).unwrap();
 
-        // println!("+ {}", name.display());
+        vprintln!("+ {}", name.display());
         self.size += path.metadata()?.len();
         self.builder.append_path_with_name(path, name)
     }

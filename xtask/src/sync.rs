@@ -52,6 +52,11 @@ impl PackMetdata {
             .expect("deps tables")
             .retain(|k, _| !k.starts_with("jellybean-pack"));
 
+        manifest["build-dependencies"]
+            .as_table_mut()
+            .expect("build-deps tables")
+            .retain(|k, _| !k.starts_with("jellybean-pack"));
+
         let explicit_features = manifest["package"]["metadata"]["features"]
             .as_array().expect("package.metadata.features array")
             .iter()
@@ -70,7 +75,10 @@ impl PackMetdata {
             dep["path"] = value(&pack.local_path);
             dep["version"] = value(&pack.version);
             dep["default-features"] = value(false);
-            manifest["dependencies"][&pack.crate_name] = value(dep.into_inline_table());
+
+            let dep_table = dep.into_inline_table();
+            manifest["dependencies"][&pack.crate_name] = value(dep_table.clone());
+            manifest["build-dependencies"][&pack.crate_name] = value(dep_table);
 
             for feature in &pack.features {
                 let mut feat = Array::new();
@@ -83,16 +91,37 @@ impl PackMetdata {
         std::fs::write(toml_path, manifest.to_string())
     }
 
-    fn write_metadata_rs(metadata: &[PackMetdata], path: &Path) -> io::Result<()> {
+    fn dep_name(&self) -> String {
+        self.crate_name.replace('-', "_")
+    }
+
+    fn write_languages_metadata(&self, sink: &mut dyn io::Write) -> io::Result<()> {
+        let dep = self.dep_name();
+
+        writeln!(sink, "\t\t&[")?;
+        for feature in &self.features {
+            writeln!(sink, "\t\t\tLanguageMetadata {{")?;
+            writeln!(sink, "\t\t\t\tname: {dep}::{feature}::NAME,")?;
+            writeln!(sink, "\t\t\t\tqueries: {dep}::{feature}::QUERIES,")?;
+            writeln!(sink, "\t\t\t\tlanguage: {dep}::{feature}::language,")?;
+            writeln!(sink, "\t\t\t}},")?;
+        }
+
+        writeln!(sink, "\t\t],")
+    }
+
+    fn write_metadata_rs(metadata: &[Self], path: &Path) -> io::Result<()> {
         let mut file = BufWriter::new(File::create(path)?);
 
         writeln!(&mut file, "&[")?;
-        for PackMetdata { crate_name, features, .. } in metadata {
-            let dep = crate_name.replace('-', "_");
-            writeln!(&mut file, r#"PackMetdata {{
-                dep: {dep:?},
-                features: &{features:?},
-            }},"#)?;
+
+        for pack in metadata {
+            writeln!(&mut file, "\tPackMetdata {{")?;
+            writeln!(&mut file, "\t\tdep: {:?},", pack.dep_name())?;
+            writeln!(&mut file, "\t\tfeatures: &{:?},", pack.features)?;
+            write!(&mut file,   "\t\tlanguages: ")?;
+            pack.write_languages_metadata(&mut file)?;
+            writeln!(&mut file, "\t}},")?;
         }
 
         writeln!(&mut file, "]")

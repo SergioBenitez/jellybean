@@ -1,6 +1,6 @@
+use std::sync::atomic::{Ordering, AtomicU8, AtomicBool};
 use std::path::{Component, Path, PathBuf};
 use std::sync::Arc;
-use std::sync::atomic::{Ordering, AtomicU8};
 
 use globset::{GlobSet, GlobSetBuilder, Glob};
 
@@ -64,13 +64,19 @@ macro_rules! crate_path {
    }
 }
 
+pub static VERBOSE: AtomicBool = AtomicBool::new(false);
+
 #[macro_export]
 macro_rules! vprintln {
-    ($verbose_flag:expr, $($token:tt)*) => {
-        if $verbose_flag {
+    ($($token:tt)*) => {
+        if $crate::util::verbose() {
             println!($($token)*);
         }
    }
+}
+
+pub fn verbose() -> bool {
+    VERBOSE.load(std::sync::atomic::Ordering::Relaxed)
 }
 
 pub fn visible(entry: &walkdir::DirEntry) -> bool {

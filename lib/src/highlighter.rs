@@ -46,11 +46,15 @@ struct FusedEvents<'a, I> {
 }
 
 impl<'c> Highlighter<'c> {
-    pub fn new(language: &'static Language, captures: &'c [&'c str]) -> Self {
+    pub fn new(
+        language: &'static Language,
+        config: HighlightConfiguration,
+        captures: &'c [&'c str]
+    ) -> Self {
         Self {
             language,
+            config,
             captures: Captures::Borrowed(captures),
-            config: language.highlight_config(captures),
             inner: TsHighlighter::new(),
         }
     }
@@ -73,7 +77,9 @@ impl<'c> Highlighter<'c> {
         source: &'a str,
     ) -> impl Iterator<Item = Result<Highlight<'a>>> + 'a {
         let captures = &self.captures;
-        let events = self.inner.highlight(&self.config, source.as_bytes(), None, move |_| None);
+        let events = self.inner.highlight(&self.config, source.as_bytes(), None, move |name| {
+            todo!("handle injections. test with markdown.");
+        });
         FusedEvents { captures, source, events, done: false }
     }
 }

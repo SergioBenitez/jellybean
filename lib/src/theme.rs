@@ -30,6 +30,17 @@ impl<T> Theme<T> {
         Theme::Static(set)
     }
 
+    pub fn find_exact(&self, capture: &str) -> Option<&T> {
+        match self {
+            Theme::Dynamic(map) => map.get(capture),
+            Theme::Static(list) => {
+                list.binary_search_by_key(&capture, |(name, _)| name).ok()
+                    .and_then(|i| list.get(i))
+                    .map(|(_name, item)| item)
+            }
+        }
+    }
+
     pub fn find(&self, capture: &str) -> Option<&T> {
         fn _find<'a, T, S, F>(capture: &str, set: &'a S, getter: F) -> Option<&'a T>
             where F: Fn(&'a S, &str) -> Option<&'a T>
@@ -40,7 +51,7 @@ impl<T> Theme<T> {
                     return None;
                 }
 
-                if let Some(value) = getter(set, capture) {
+                if let Some(value) = getter(set, candidate) {
                     return Some(value);
                 }
 
@@ -51,7 +62,9 @@ impl<T> Theme<T> {
         match self {
             Theme::Dynamic(map) => _find(capture, map, |map, k| map.get(k)),
             Theme::Static(list) => _find(capture, list, |list, k| {
-                list.binary_search_by_key(&k, |(name, _)| name).map(|i| &list[i].1).ok()
+                list.binary_search_by_key(&k, |(name, _)| name).ok()
+                    .and_then(|i| list.get(i))
+                    .map(|(_name, item)| item)
             }),
         }
     }

@@ -1,4 +1,5 @@
-use jellybean::{Language, Highlighter, COMMON_CAPTURES};
+use jellybean::tree_sitter_highlight::{SerializableHighlightConfig, HighlightConfiguration};
+use jellybean::{Highlighter, COMMON_CAPTURES, ALL_LANGUAGES};
 use rayon::prelude::*;
 
 const SLOW_LANGUAGES: &[&str] = &[
@@ -23,9 +24,9 @@ fn main() {
 
 fn run_split() {
     let start = std::time::Instant::now();
-    let serializable_highlighters = Language::ALL.par_iter()
-        .filter(|lang| !SLOW_LANGUAGES.contains(&lang.name))
-        .map(|language| language.highlighter(COMMON_CAPTURES))
+    let serializable_highlighters = ALL_LANGUAGES.par_iter()
+        .filter(|lang| !SLOW_LANGUAGES.contains(&lang.name()))
+        .map(|language| language.custom_highlighter(COMMON_CAPTURES))
         .map(|highlighter| highlighter.serializable())
         .collect::<Result<Vec<_>, _>>()
         .unwrap();
@@ -53,9 +54,9 @@ fn run_split() {
 
 fn run_big_blob() {
     let start = std::time::Instant::now();
-    let serializable_highlighters = Language::ALL.par_iter()
-        .filter(|lang| !SLOW_LANGUAGES.contains(&lang.name))
-        .map(|language| language.highlighter(COMMON_CAPTURES))
+    let serializable_highlighters = ALL_LANGUAGES.par_iter()
+        .filter(|lang| !SLOW_LANGUAGES.contains(&lang.name()))
+        .map(|language| language.custom_highlighter(COMMON_CAPTURES))
         .map(|highlighter| highlighter.serializable())
         .collect::<Result<Vec<_>, _>>()
         .unwrap();
@@ -75,20 +76,27 @@ fn run_big_blob() {
 }
 
 fn run_per_language(top: usize) {
-    let mut results: Vec<(_, u128)> = Language::ALL.iter()
-        .map(|language| language.highlighter(COMMON_CAPTURES))
-        .map(|highlighter| highlighter.serializable().unwrap())
-        .map(|data| bincode::serialize(&data).unwrap())
-        .map(|bytes| {
+    let mut results: Vec<(_, _, u128)> = ALL_LANGUAGES.iter()
+        .map(|lang| (lang, lang.highlight_config(COMMON_CAPTURES)))
+        .map(|(lang, hl)| (lang, hl.serializable().unwrap()))
+        .map(|(lang, data)| (lang, bincode::serialize(&data).unwrap()))
+        .map(|(lang, bytes)| {
             let start = std::time::Instant::now();
-            let hl: Highlighter = bincode::deserialize(&bytes).unwrap();
-            (hl.into_owned(), start.elapsed().as_micros())
+            let dump: SerializableHighlightConfig = bincode::deserialize(&bytes).unwrap();
+            let de_time = start.elapsed().as_micros();
+
+            let start = std::time::Instant::now();
+            let hl = HighlightConfiguration::deserialize(dump, lang.raw()).unwrap();
+            assert_eq!(hl.language_name, lang.name());
+
+            (lang.name(), de_time, start.elapsed().as_micros())
         })
         .collect::<Vec<_>>();
 
-    results.sort_by_key(|(_, duration)| *duration);
-    for (i, (hl, microsecond)) in results.iter().rev().take(top).enumerate() {
+    results.sort_by_key(|(_, de_time, c_time)| de_time + c_time);
+    for (i, (name, de, c)) in results.iter().rev().take(top).enumerate() {
         let i = i + 1;
-        println!("{i:>2} {} took {microsecond}us", hl.language().name);
+        let total = de + c;
+        println!("{i:>2} {name} took {total}us ({de}us de. / {c}us comp.)");
     }
 }

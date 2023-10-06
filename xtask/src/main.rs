@@ -43,6 +43,10 @@ fn main() {
 
     let args = std::env::args().collect::<Vec<_>>();
     let args = args.iter().skip(1).map(|s| s.as_str()).collect::<Vec<_>>();
+
+    let verbose = crate::util::flag(&args, "v");
+    crate::util::VERBOSE.store(verbose, std::sync::atomic::Ordering::Relaxed);
+
     let help = crate::util::flag(&args, "h");
     let cmd = args.get(0).and_then(|v| (!v.starts_with('-')).then_some(v));
     match cmd {

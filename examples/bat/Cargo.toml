@@ -8,5 +8,5 @@ publish = false
 release = false
 
 [dependencies]
-jellybean = { path = "../../lib/" }
+jellybean = { path = "../../lib/", features = ["precached"] }
 yansi = "1.0.0-rc.1"

@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use yansi::{Style, Color::*, Paint};
-use jellybean::{Language, Highlight, Theme, COMMON_CAPTURES};
+use jellybean::{Language, Highlight, Theme};
 
 // This is just an arbitrary theme.
 pub static THEME: Theme<Style> = Theme::new(&[
@@ -20,9 +20,15 @@ pub static THEME: Theme<Style> = Theme::new(&[
     ("punctuation", Primary.bold()),
     ("punctuation.bracket", Primary.foreground()),
     ("punctuation.delimiter", Primary.bold()),
+    ("punctuation.special", Magenta.bold()),
     ("string", Green.bright()),
     ("string.special", Green.bright()),
     ("tag", BrightRed.foreground()),
+    ("text", Green.foreground()),
+    ("text.literal", Primary.invert().on_primary()),
+    ("text.reference", Blue.foreground()),
+    ("text.title", Magenta.foreground()),
+    ("text.uri", Green.underline()),
     ("type", Blue.foreground()),
     ("type.builtin", Yellow.foreground()),
     ("variable", Cyan.foreground()),
@@ -51,14 +57,24 @@ fn parse_cli_args() -> PathBuf {
     path
 }
 
-fn print_styled_event(stack: &mut Vec<Style>, highlight: Highlight<'_>) {
+fn print_styled_event(stack: &mut Vec<Style>, highlight: Highlight<'_>, md: bool) {
     match highlight {
         Highlight::Start { group, .. } => {
+            if THEME.find_exact(group).is_none() {
+                eprintln!("warning: no exact style found for {group}");
+            }
+
             let style = THEME.find(group).copied().unwrap_or(Primary.foreground());
+
             stack.push(style);
             print!("{}", style.prefix());
-        }
-        Highlight::Source { text, .. } => print!("{}", text),
+        },
+        Highlight::Source { text, .. } if stack.is_empty() && md => {
+            Language::markdown_inline.precached_highlighter()
+                .highlight(text)
+                .for_each(|event| print_styled_event(stack, event.unwrap(), false));
+        },
+        Highlight::Source { text, .. } => print!("{text}"),
         Highlight::End => {
             // Restore the previous styling if there was some.
             stack.pop();
@@ -83,9 +99,10 @@ fn main() -> std::io::Result<()> {
     // Print the source with terminal colors if we have a language highlighter.
     let mut stack = vec![];
     if let Some(language) = language {
-        language.highlighter(COMMON_CAPTURES)
+        let md = language.name() == "markdown";
+        language.precached_highlighter()
             .highlight(&source)
-            .for_each(|event| print_styled_event(&mut stack, event.unwrap()))
+            .for_each(|event| print_styled_event(&mut stack, event.unwrap(), md))
     } else {
         let ext = ext.unwrap_or("[empty]".into());
         eprintln!("warning: emitting plaintext ({:?} not recognized)", ext);
