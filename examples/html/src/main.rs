@@ -3,7 +3,7 @@ use std::fmt::Write;
 use std::path::PathBuf;
 use std::fs::File;
 
-use jellybean::{Language, Highlight, COMMON_CAPTURES};
+use jellybean::{Language, Highlight};
 
 const HTML_PREFIX: &str = concat!(r#"
 <!DOCTYPE html>
@@ -109,7 +109,7 @@ fn main() -> std::io::Result<()> {
     // Generate the HTML, using the language's highlighter.
     let mut html = html_prefix(&source);
     if let Some(language) = language {
-        for event in language.highlighter(COMMON_CAPTURES).highlight(&source) {
+        for event in language.highlighter().highlight(&source) {
             html_line_styled(&mut html, event.unwrap());
         }
     } else {

@@ -42,7 +42,7 @@ fn run_split() {
     println!("parallel serialization took {}us", se_start.elapsed().as_micros());
 
     let de_start = std::time::Instant::now();
-    let highlighters: Vec<Highlighter<'_>> = serialized.par_iter()
+    let highlighters: Vec<Highlighter> = serialized.par_iter()
         .map(|bytes| bincode::deserialize(&bytes))
         .collect::<Result<_, _>>()
         .unwrap();
@@ -69,7 +69,7 @@ fn run_big_blob() {
     println!("serialization took {}us ({} KiB)", se_start.elapsed().as_micros(), len);
 
     let de_start = std::time::Instant::now();
-    let highlighters: Vec<Highlighter<'_>> = bincode::deserialize(&bytes).unwrap();
+    let highlighters: Vec<Highlighter> = bincode::deserialize(&bytes).unwrap();
     assert!(highlighters.len() == serializable_highlighters.len());
     println!("deserialization took {}us", de_start.elapsed().as_micros());
     println!("complete round-trip time: {}ms", start.elapsed().as_millis());

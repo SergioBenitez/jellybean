@@ -18,7 +18,8 @@ fn take_json_value(value: &mut JsonValue) -> JsonValue {
 
 #[derive(Debug, Default)]
 struct TsMetadata {
-    name: String,
+    raw_name: String,
+    rust_name: String,
     enabled: bool,
     src_dir: PathBuf,
     file_types: Vec<String>,
@@ -29,34 +30,33 @@ struct TsMetadata {
 impl TsMetadata {
     fn read(language: &DirEntry) -> TsMetadata {
         let path = language.path();
-        let name = language.file_name().to_string_lossy().to_string();
+        let raw_name = language.file_name().to_string_lossy().to_string();
+        let rust_name = raw_name.replace('-', "_");
 
         let enabled = true;
-        if std::env::var_os(format!("CARGO_FEATURE_{}", name.to_uppercase())).is_none() {
-            return TsMetadata { name, enabled: false, ..Default::default() };
+        if std::env::var_os(format!("CARGO_FEATURE_{}", rust_name.to_uppercase())).is_none() {
+            return TsMetadata { raw_name, rust_name, enabled: false, ..Default::default() };
         }
 
         let root_candidates = [
-            path.join(&name),
-            path.join(format!("tree-sitter-{name}")),
-            path.join(format!("tree_sitter_{name}")),
-            path.join(format!("tree-sitter-{}", name.replace('_', "-"))),
-            path.join(format!("tree-sitter-{}", name.replace('-', "_"))),
-            path.join(format!("tree-sitter_{}", name.replace('_', "-"))),
-            path.join(format!("tree-sitter_{}", name.replace('-', "_"))),
+            path.join(&raw_name),
+            path.join(format!("tree-sitter-{raw_name}")),
+            path.join(format!("tree_sitter_{raw_name}")),
+            path.join(format!("tree-sitter-{rust_name}")),
+            path.join(format!("tree-sitter_{rust_name}")),
             path.clone(),
         ];
 
         let src_dir = root_candidates.iter()
             .map(|p| p.join("src"))
             .find(|p| p.exists())
-            .expect(&format!("{name}: missing src ({root_candidates:?})"));
+            .expect(&format!("{raw_name}: missing src ({root_candidates:?})"));
 
         let (description, ts_json) = root_candidates.iter()
             .map(|root| root.join("package.json"))
-            .filter_map(|path| Self::parse_package_json(&name, &path))
+            .filter_map(|path| Self::parse_package_json(&raw_name, &path))
             .next()
-            .expect(&format!("{name}: missing package.json ({root_candidates:?})"));
+            .expect(&format!("{raw_name}: missing package.json ({root_candidates:?})"));
 
         let mut file_types = ts_json.get("file-types")
             .and_then(|ft| ft.get::<JsonArray>())
@@ -88,7 +88,7 @@ impl TsMetadata {
                     .collect()
             });
 
-        TsMetadata { name, enabled, src_dir, file_types, queries, description, }
+        TsMetadata { raw_name, rust_name, enabled, src_dir, file_types, queries, description, }
     }
 
     fn parse_package_json(name: &str, path: &Path) -> Option<(String, JsonMap)> {
@@ -139,28 +139,28 @@ impl TsMetadata {
 
     fn assert_queries(&self) {
         if !self.queries.iter().any(|(k, _)| k == "highlights") {
-            panic!("{} is missing highlights query", self.name);
+            panic!("{} is missing highlights query", self.raw_name);
         }
 
         for (query, path) in &self.queries {
             if !path.exists() {
-                panic!("{} query {query:?} ({path:?}) not found", self.name);
+                panic!("{} query {query:?} ({path:?}) not found", self.raw_name);
             }
         }
     }
 
     fn write_macro_line(&self, sink: &mut dyn io::Write) -> io::Result<()> {
-        let TsMetadata { name, file_types, description, .. } = self;
-        write!(sink, "\t\t{name}, {name:?}, {description:?}, {file_types:?}")
+        let TsMetadata { rust_name, file_types, description, .. } = self;
+        write!(sink, "\t\t{rust_name}, {rust_name:?}, {description:?}, {file_types:?}")
     }
 
     fn write_docs_line(&self, sink: &mut dyn io::Write) -> io::Result<()> {
-        let TsMetadata { name, file_types, description, .. } = self;
-        writeln!(sink, "| [`{name}`] | {} | {description} |", file_types.join(", "))
+        let TsMetadata { rust_name, file_types, description, .. } = self;
+        writeln!(sink, "| [`{rust_name}`] | {} | {description} |", file_types.join(", "))
     }
 
     fn write_module_line(&self, sink: &mut dyn io::Write) -> io::Result<()> {
-        let TsMetadata { name, file_types, queries, description, .. } = self;
+        let TsMetadata { rust_name, file_types, queries, description, .. } = self;
 
         let query_keys = queries.iter().map(|k| &k.0).collect::<Vec<_>>();
         let expanded_queries: Vec<_> = queries.iter()
@@ -168,10 +168,10 @@ impl TsMetadata {
             .collect();
 
         writeln!(sink, r#"
-            /// The `{name}` tree-sitter language.
-            pub mod {name} {{
-                /// The stringified language name: `{name:?}`.
-                pub const NAME: &'static str = {name:?};
+            /// The `{rust_name}` tree-sitter language.
+            pub mod {rust_name} {{
+                /// The stringified language name: `{rust_name:?}`.
+                pub const NAME: &'static str = {rust_name:?};
 
                 /// A description of the tree-sitter language. May be empty.
                 pub const DESCRIPTION: &'static str = {description:?};
@@ -191,8 +191,8 @@ impl TsMetadata {
 
                 /// The tree-sitter language structure.
                 pub fn language() -> tree_sitter::Language {{
-                    extern "C" {{ fn tree_sitter_{name}() -> tree_sitter::Language; }}
-                    unsafe {{ tree_sitter_{name}() }}
+                    extern "C" {{ fn tree_sitter_{rust_name}() -> tree_sitter::Language; }}
+                    unsafe {{ tree_sitter_{rust_name}() }}
                 }}
             }}
         "#)
@@ -204,7 +204,7 @@ impl TsMetadata {
             path.exists().then_some(path)
         }
 
-        let name = &self.name;
+        let raw_name = &self.raw_name;
         let base_config = cc::Build::new()
             .opt_level(3)
             .include(&self.src_dir)
@@ -219,12 +219,12 @@ impl TsMetadata {
 
         if let Some(parser) = entry(&self.src_dir, "parser.c") {
             println!("cargo:rerun-if-changed={}", parser.display());
-            base_config.clone().file(parser).compile(&format!("{name}-parser"));
+            base_config.clone().file(parser).compile(&format!("{raw_name}-parser"));
         }
 
         if let Some(scanner) = entry(&self.src_dir, "scanner.c") {
             println!("cargo:rerun-if-changed={}", scanner.display());
-            base_config.clone().file(&scanner).compile(&format!("{name}-scanner"));
+            base_config.clone().file(&scanner).compile(&format!("{raw_name}-scanner"));
         } else if let Some(scanner) = entry(&self.src_dir, "scanner.cc") {
             println!("cargo:rerun-if-changed={}", scanner.display());
             let mut cpp_config = base_config.clone();
@@ -232,7 +232,7 @@ impl TsMetadata {
                 cpp_config.flag_if_supported("-fno-exceptions");
             }
 
-            cpp_config.cpp(true).file(&scanner).compile(&format!("{name}-scanner"));
+            cpp_config.cpp(true).file(&scanner).compile(&format!("{raw_name}-scanner"));
         }
     }
 }
@@ -264,7 +264,7 @@ fn main() -> io::Result<()> {
         .collect::<Vec<_>>();
 
     // Sort, then compile each language in parallel.
-    metadata.sort_by(|a, b| a.name.cmp(&b.name));
+    metadata.sort_by(|a, b| a.rust_name.cmp(&b.rust_name));
     metadata.par_iter().for_each(|lang| lang.compile());
 
     // Write out the second-order macro source. This also serves as a doc-test

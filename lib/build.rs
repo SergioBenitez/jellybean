@@ -34,15 +34,21 @@ mod precached {
         }
 
         pub fn highlight_config(&self) -> HighlightConfiguration {
-            let mut config = HighlightConfiguration::new(
+            let config = HighlightConfiguration::new(
                 (self.language)(),
                 self.name,
                 self.query("highlights").unwrap_or(""),
                 self.query("injections").unwrap_or(""),
                 self.query("locals").unwrap_or(""),
                 true,
-            ).expect("all queries pre-tested");
+            );
 
+            if let Err(e) = config {
+                eprintln!("HighlightConfig failure for: {}\n{e}", self.name);
+                panic!("queries failed");
+            }
+
+            let mut config = config.unwrap();
             config.configure(EXHAUSTIVE_CAPTURES);
             config
         }

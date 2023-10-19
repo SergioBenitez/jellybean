@@ -118,16 +118,17 @@ impl Language {
         config
     }
 
-    #[cfg(feature = "precached")]
-    pub fn precached_highlighter(self: &'static Self) -> Highlighter<'static> {
-        let dump = crate::dumps::fetch(self.dump_id).clone();
-        let config = HighlightConfiguration::deserialize(dump, self.raw()).unwrap();
-        Highlighter::new(self, config, crate::capture::EXHAUSTIVE_CAPTURES)
+    pub fn custom_highlighter(
+        self: &'static Self,
+        captures: &'static [&'static str]
+    ) -> Highlighter {
+        let config = self.highlight_config(captures);
+        Highlighter::new(self, config, captures)
     }
 
-    #[inline]
-    pub fn custom_highlighter<'a>(self: &'static Self, captures: &'a [&'a str]) -> Highlighter<'a> {
-        Highlighter::new(self, self.highlight_config(captures), captures)
+    #[cfg(feature = "precached")]
+    pub fn highlighter(self: &'static Self) -> Highlighter {
+        crate::dumps::fetch_highlighter(self)
     }
 }
 

@@ -1,22 +1,36 @@
 use std::sync::OnceLock;
 
-use tree_sitter_highlight::SerializableHighlightConfig;
+use tree_sitter_highlight::HighlightConfiguration;
+
+use crate::{Language, Highlighter, EXHAUSTIVE_CAPTURES};
 
 pub struct Dump {
     bytes: &'static [u8],
-    cache: &'static OnceLock<SerializableHighlightConfig>,
+    cache: &'static OnceLock<HighlightConfiguration>,
 }
 
 impl Dump {
     #[inline(always)]
-    pub fn force(&self) -> &SerializableHighlightConfig {
-        self.cache.get_or_init(|| bincode::deserialize(self.bytes).unwrap())
+    pub fn force(&self, lang: &'static Language) -> Highlighter {
+        let config = self.cache.get_or_init(|| self.decode(lang));
+        Highlighter::new(lang, config, &EXHAUSTIVE_CAPTURES[..])
+    }
+
+    #[inline(always)]
+    pub fn decode(&self, lang: &'static Language) -> HighlightConfiguration {
+        let bytes = bincode::deserialize(self.bytes).unwrap();
+        HighlightConfiguration::deserialize(bytes, lang.raw()).unwrap()
     }
 }
 
 #[inline(always)]
-pub fn fetch(id: usize) -> &'static SerializableHighlightConfig {
-    DUMPS[id].force()
+pub fn fetch_config(language: &'static Language) -> HighlightConfiguration {
+    DUMPS[language.dump_id].decode(language)
+}
+
+#[inline(always)]
+pub fn fetch_highlighter(language: &'static Language) -> Highlighter {
+    DUMPS[language.dump_id].force(language)
 }
 
 macro_rules! define_dump_ids {
@@ -40,7 +54,7 @@ macro_rules! define_dumps {
             Dump {
                 bytes: &crate::precached::$m::DUMP,
                 cache: {
-                    static CACHE: OnceLock<SerializableHighlightConfig> = OnceLock::new();
+                    static CACHE: OnceLock<HighlightConfiguration> = OnceLock::new();
                     &CACHE
                 }
             }
